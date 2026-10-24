@@ -1,0 +1,16 @@
+{
+  "name": "simmery",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Recipe management, weekly meal planning, shopping and cooking, with an MCP server for agent-assisted planning",
+  "scripts": {
+    "build": "nx run-many --target=build --all",
+    "test": "nx run-many --target=test --all",
+    "lint": "nx run-many --target=lint --all"
+  },
+  "packageManager": "pnpm@10.13.1",
+  "devDependencies": {
+    "@nx/workspace": "^22.7.12",
+    "nx": "^22.7.12"
+  }
+}

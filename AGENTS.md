@@ -1,0 +1,19 @@
+# Simmery
+
+Recipe management system for an invite-only group: per-user recipes and ingredient catalogs, weekly meal plans, an offline-capable shopping list, cooking view, statistics, a freeform taste profile, recipe sharing, and a remote MCP server so a user's agent can plan weeks and add recipes.
+
+The product contract lives in `docs/plans/`. Read the latest plan before starting feature work; implementation plans enrich that same file.
+
+# Basic Instructions
+
+* No obvious comments. Do not add comments that do not add additional details when a block of code is already providing same information via a function name, variable name, or log statement.
+* Full-stack TypeScript, Postgres, Nx/pnpm monorepo. Apps go under `apps/`, shared code under `libs/`.
+* The web API and the MCP server share one domain layer; never duplicate business rules between them.
+* All user data is owned by exactly one user. Every query and MCP tool must be scoped to the authenticated user.
+* Use Conventional Commits (`feat:`, `fix:`, `chore:` …); releases will be derived from them.
+
+# Working with Nx
+
+* Run tasks through Nx (`pnpm nx run`, `pnpm nx run-many`, `pnpm nx affected`) instead of the underlying tools.
+* Prefix nx commands with `pnpm` to use the workspace-local CLI.
+* For scaffolding (apps, libs), use Nx generators; never guess CLI flags, check `--help` or the Nx docs first.

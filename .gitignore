@@ -1,0 +1,26 @@
+# Nx
+.nx/cache
+.nx/workspace-data
+.nx/polygraph
+node_modules
+dist
+coverage
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Claude
+.claude/settings.local.json
+.claude/worktrees
+
+# IntelliJ: keep only shared code style and run configurations
+.idea/*
+!.idea/codeStyles
+!.idea/runConfigurations
+
+# OS
+.DS_Store
+Thumbs.db
+*~

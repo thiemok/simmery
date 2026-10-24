@@ -1,0 +1,15 @@
+scripts:
+  setup: |
+    set -euo pipefail
+    cd "$ORCA_WORKTREE_PATH"
+
+    # Gitignored local files that a fresh worktree needs from the main checkout.
+    for f in .env .claude/settings.local.json; do
+      if [ -f "$ORCA_ROOT_PATH/$f" ] && [ ! -e "$f" ]; then
+        mkdir -p "$(dirname "$f")"
+        cp "$ORCA_ROOT_PATH/$f" "$f"
+        echo "copied $f"
+      fi
+    done
+
+    pnpm install --frozen-lockfile
