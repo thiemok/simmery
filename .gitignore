@@ -24,3 +24,11 @@ coverage
 .DS_Store
 Thumbs.db
 *~
+
+.nx/migrate-runs
+vitest.config.*.timestamp*
+.vitest
+
+vite.config.*.timestamp*
+out-tsc
+test-output
