@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dawn Outrun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* Dawn Outrun: one striped sun rising out of a slow haze-blue-to-apricot sky; everything else is flat paper, ink and dusk blue */
+:root{
+  --c-ground:#FFF7EF;
+  --c-surface:#FFFFFF;
+  --c-ink:#262848;
+  --c-ink-soft:#585C7E;
+  --c-line:#E9E2DC;
+  --c-accent:#3D4FA8;
+  --c-accent-ink:#FFFFFF;
+  --c-sun-1:#FFD98A;
+  --c-sun-2:#FFB585;
+  --c-sun-3:#EFA48E;
+  --c-grid:#8E94C6;
+  --c-sky:#FFE6D3;
+  --c-haze:#DDE6F3;
+  --c-lavender:#ECE3F1;
+  --c-checked:#0B7A78;
+  --c-checked-bg:#DDF4F1;
+  --c-offline:#8A4B00;
+  --c-offline-bg:#FFE7B8;
+  --g-sunrise:linear-gradient(180deg,var(--c-sun-1) 0%,var(--c-sun-2) 52%,var(--c-sun-3) 100%);
+  --g-sky:linear-gradient(180deg,#DDE6F3 0%,#ECE3F1 55%,#FFE6D3 100%);
+  --f-display:"Oxanium","Eurostile","Arial",sans-serif;
+  --f-body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"Share Tech Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  --r-sm:6px;
+  --r-md:12px;
+  --r-pill:999px;
+  --s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:24px;--s-6:32px;--s-7:48px;
+  --glow:none;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--c-ground);color:var(--c-ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+section{padding:var(--s-7) 0;border-bottom:1px solid var(--c-line)}
+h2.sec{font-family:var(--f-display);font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--c-accent);margin-bottom:var(--s-5);display:flex;align-items:center;gap:12px}
+h2.sec::after{content:"";flex:1;height:1px;background:var(--c-line)}
+
+/* hero */
+.hero{position:relative;overflow:hidden;background:var(--g-sky);border-bottom:none;padding:0}
+.hero-inner{position:relative;z-index:2;padding-top:56px;padding-bottom:40px;display:grid;gap:28px;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+@media (max-width:820px){.hero-inner{grid-template-columns:1fr}}
+.kicker{font-family:var(--f-mono);font-size:13px;letter-spacing:.12em;color:var(--c-ink-soft);text-transform:uppercase}
+.dname{font-family:var(--f-display);font-size:clamp(44px,9vw,92px);line-height:.95;margin:10px 0 16px;color:var(--c-ink);font-weight:700;letter-spacing:-.01em}
+.dname span{display:block;color:var(--c-accent);font-weight:600}
+.pitch{font-size:21px;font-weight:600;max-width:34ch;line-height:1.35}
+.moods{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+.moods li{list-style:none;font-family:var(--f-mono);font-size:13px;padding:4px 10px;border:1px solid var(--c-line);border-radius:var(--r-pill);background:rgba(255,255,255,.6)}
+.rationale{background:rgba(255,255,255,.82);border-radius:var(--r-md);padding:18px 20px;align-self:end}
+.rationale p{font-size:15.5px;color:var(--c-ink);margin-bottom:8px}
+.rationale p:last-child{margin-bottom:0}
+.rationale b{color:var(--c-accent)}
+.changes{margin-top:14px;padding-top:12px;border-top:1px dashed var(--c-line)}
+.ch-h{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-ink-soft);margin-bottom:6px!important}
+.changes ul{padding-left:18px;font-size:14.5px}
+.changes li{margin-bottom:3px}
+.keep{font-size:14.5px;margin-top:6px!important}
+.changes code{font-family:var(--f-mono);font-size:13px}
+.horizon{position:relative;height:176px;z-index:1}
+.sun{position:absolute;left:50%;width:300px;height:150px;transform:translateX(-50%);border-radius:150px 150px 0 0;bottom:24px;background:var(--g-sunrise);
+  -webkit-mask:linear-gradient(180deg,#000 0 46%,transparent 46% 52%,#000 52% 64%,transparent 64% 70%,#000 70% 79%,transparent 79% 86%,#000 86% 92%,transparent 92%);
+          mask:linear-gradient(180deg,#000 0 46%,transparent 46% 52%,#000 52% 64%,transparent 64% 70%,#000 70% 79%,transparent 79% 86%,#000 86% 92%,transparent 92%)}
+.grid-plane{position:absolute;left:0;right:0;bottom:0;height:24px;background:var(--c-ground)}
+.grid-plane::after{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:var(--c-sun-2)}
+
+/* wordmark */
+.wm-row{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.wm-card{border-radius:var(--r-md);padding:32px 24px;display:flex;align-items:center;justify-content:center;gap:16px;min-height:180px;position:relative;overflow:hidden}
+.wm-card.light{background:var(--c-surface);border:1px solid var(--c-line)}
+.wm-card.sky{background:var(--g-sky)}
+.wm-card.small{background:var(--c-surface);border:1px solid var(--c-line);flex-direction:column}
+.wordmark{font-family:var(--f-display);font-weight:700;font-size:clamp(40px,6.5vw,56px);line-height:1;letter-spacing:.01em;color:var(--c-ink)}
+.wm-note{font-size:13px;color:var(--c-ink-soft);position:absolute;bottom:10px;left:16px;font-family:var(--f-mono)}
+.icons{display:flex;gap:18px;align-items:end}
+
+/* palette */
+.pal{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.sw{border-radius:var(--r-md);overflow:hidden;border:1px solid var(--c-line);background:var(--c-surface)}
+.sw i{display:block;height:84px}
+.sw div{padding:10px 12px}
+.sw b{display:block;font-size:14px}
+.sw code{font-family:var(--f-mono);font-size:13px;color:var(--c-ink-soft)}
+
+/* type */
+.type{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.tcard{background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-md);padding:22px}
+.tcard .lbl{font-family:var(--f-mono);font-size:12px;color:var(--c-ink-soft);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.spec-d{font-family:var(--f-display);font-weight:600;font-size:38px;line-height:1.05;font-style:normal}
+.spec-b{font-size:18px;line-height:1.5}
+.spec-m{font-family:var(--f-mono);font-size:22px}
+.scale{margin-top:14px;display:grid;gap:6px}
+.scale div{display:flex;align-items:baseline;gap:12px;border-top:1px dashed var(--c-line);padding-top:6px}
+.scale small{font-family:var(--f-mono);font-size:11px;color:var(--c-ink-soft);width:64px;flex:none}
+
+/* phones */
+.phones{display:grid;gap:28px;grid-template-columns:repeat(auto-fill,minmax(300px,360px));justify-content:center}
+.phone-wrap{display:flex;flex-direction:column;gap:10px;align-items:center}
+.phone-cap{font-family:var(--f-mono);font-size:13px;color:var(--c-ink-soft)}
+.phone{width:min(360px,100%);height:740px;border-radius:38px;background:var(--c-ground);border:10px solid var(--c-ink);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status{height:30px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font-size:13px;font-weight:700;font-family:var(--f-body)}
+.status .r{display:flex;gap:6px;align-items:center}
+.appbar{display:flex;align-items:center;gap:10px;padding:8px 16px 10px;flex:none}
+.appbar h3{font-size:17px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:40px;height:40px;border-radius:var(--r-pill);display:grid;place-items:center;background:var(--c-surface);border:1px solid var(--c-line);flex:none;color:var(--c-ink)}
+.scroll{flex:1;overflow:hidden;position:relative}
+.nav{flex:none;display:flex;justify-content:space-around;padding:8px 6px 16px;background:var(--c-surface);border-top:1px solid var(--c-line)}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--c-ink-soft);text-decoration:none;min-width:56px}
+.nav a.on{color:var(--c-accent)}
+
+/* recipe detail */
+.rhero{position:relative;height:200px;background:var(--g-sky);overflow:hidden}
+.rhero .sun{width:200px;height:100px;bottom:34px}
+.rhero .grid-plane{height:34px}
+.rhero .back{position:absolute;top:10px;left:14px;z-index:3}
+.rhero .fav{position:absolute;top:10px;right:14px;z-index:3}
+.rbody{background:var(--c-surface);border-radius:20px 20px 0 0;margin-top:-18px;position:relative;z-index:3;padding:18px 18px 0}
+.rtitle{font-size:24px;line-height:1.15;font-weight:800;letter-spacing:-.01em}
+.meta{display:flex;gap:14px;margin:10px 0 12px;font-size:14px;color:var(--c-ink-soft);font-weight:600;flex-wrap:wrap}
+.meta span{display:flex;align-items:center;gap:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--f-mono);font-size:12.5px;padding:3px 10px;border-radius:var(--r-pill);border:1px solid var(--c-line);color:var(--c-ink);background:var(--c-ground)}
+.stars{display:flex;gap:2px;align-items:center}
+.rrow{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;padding:10px 12px;border-radius:var(--r-md);background:var(--c-ground)}
+.rrow small{font-size:13px;color:var(--c-ink-soft);font-weight:600}
+.ing-h{display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 6px}
+.ing-h h4{font-family:var(--f-display);font-weight:600;font-size:16px}
+.serv{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.serv b{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--c-ink);display:grid;place-items:center;font-size:16px;line-height:1}
+.ing{list-style:none}
+.ing li{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--c-line);font-size:15px}
+.ing li b{font-family:var(--f-mono);font-weight:400;font-size:14px;min-width:92px;color:var(--c-accent)}
+.cta{position:absolute;left:16px;right:16px;bottom:12px;z-index:5}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--f-body);font-weight:800;font-size:16px;letter-spacing:.02em;border-radius:var(--r-pill);padding:13px 22px;border:none;cursor:pointer;text-decoration:none}
+.btn-p{background:var(--c-accent);color:var(--c-accent-ink);box-shadow:var(--glow)}
+.btn-p.sunset{background:linear-gradient(90deg,#3D4FA8,#2E3F8F);}
+.btn-s{background:var(--c-surface);color:var(--c-ink);border:1.5px solid var(--c-ink)}
+.btn-full{width:100%}
+
+/* week plan */
+.wk-head{padding:4px 16px 12px}
+.wk-head .k{font-family:var(--f-mono);font-size:13px;color:var(--c-accent);letter-spacing:.06em}
+.wk-head h3{font-family:var(--f-display);font-weight:700;font-size:26px;font-style:normal;line-height:1.1;margin-top:2px}
+.wk-head p{font-size:14px;color:var(--c-ink-soft);font-weight:600}
+.strip{margin:0 16px 12px;padding:10px 12px;border-radius:var(--r-md);background:var(--c-surface);border:1px solid var(--c-line);font-size:13.5px;font-weight:600;display:flex;gap:10px;align-items:flex-start}
+.strip svg{flex:none;margin-top:2px}
+.meals{list-style:none;padding:0 16px;display:grid;gap:10px}
+.meal{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 10px;background:var(--c-surface);border-radius:var(--r-md);border:1px solid var(--c-line);position:relative}
+.meal .n{font-family:var(--f-display);font-weight:700;font-size:22px;width:44px;height:52px;display:grid;place-items:center;border-radius:8px;background:var(--c-ground);color:var(--c-ink);flex:none}
+.meal .t{flex:1;min-width:0}
+.meal .t b{display:block;font-size:16px;line-height:1.2}
+.meal .t small{font-size:13px;color:var(--c-ink-soft);font-weight:600}
+.meal .sv{font-family:var(--f-mono);font-size:13.5px;color:var(--c-ink-soft);white-space:nowrap}
+.meal.cooked .n{background:var(--c-checked-bg);color:var(--c-checked);-webkit-text-stroke:0}
+.add-meal{margin:12px 16px 0;border:2px dashed var(--c-line);border-radius:var(--r-md);padding:12px;text-align:center;font-weight:700;color:var(--c-ink-soft);font-size:14px}
+.wk-sum{display:flex;gap:8px;margin:12px 16px 0}
+.wk-sum div{flex:1;background:var(--c-surface);border-radius:var(--r-md);padding:8px 10px;border:1px solid var(--c-line)}
+.wk-sum b{font-family:var(--f-display);font-size:20px;display:block;line-height:1.1}
+.wk-sum small{font-size:12px;color:var(--c-ink-soft);font-weight:600}
+
+/* shopping */
+.offline{margin:0 12px 10px;border-radius:var(--r-md);background:var(--c-offline-bg);color:var(--c-offline);padding:10px 12px;display:flex;gap:10px;align-items:flex-start;font-size:14px;font-weight:700;line-height:1.3;}
+.offline svg{flex:none}
+.shop-sec{padding:0 16px}
+.shop-sec h5{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-ink-soft);margin:8px 0 2px;font-weight:400}
+.items{list-style:none;background:var(--c-surface);border-radius:var(--r-md);border:1px solid var(--c-line);padding:0 12px}
+.item{display:flex;align-items:center;gap:12px;min-height:41px;border-bottom:1px solid var(--c-line);font-size:16px;font-weight:600}
+.item:last-child{border-bottom:none}
+.item .q{margin-left:auto;font-family:var(--f-mono);font-size:13.5px;font-weight:400;color:var(--c-ink-soft);text-align:right;white-space:nowrap}
+.item .q em{display:block;font-style:normal;color:var(--c-accent);font-size:12px}
+.item.done{color:var(--c-ink-soft)}
+.item.done .nm{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--c-checked)}
+.item .pend{width:8px;height:8px;border-radius:50%;background:#D88A1E;flex:none}
+.cb{width:26px;height:26px;border-radius:7px;border:2px solid var(--c-ink);flex:none;display:grid;place-items:center;background:var(--c-surface)}
+.cb.on{background:var(--c-checked);border-color:var(--c-checked)}
+.prog{display:flex;align-items:center;gap:10px;padding:0 16px 10px;font-family:var(--f-mono);font-size:13px;color:var(--c-ink-soft)}
+.prog .bar{flex:1;height:6px;border-radius:3px;background:var(--c-line);overflow:hidden}
+.prog .bar i{display:block;height:100%;width:30%;background:var(--c-checked)}
+
+/* cooking */
+.cook{background:var(--c-surface)}
+.cook .appbar{border-bottom:1px solid var(--c-line)}
+.stepk{font-family:var(--f-display);font-weight:600;font-size:16px;color:var(--c-accent)}
+.dots{display:flex;gap:5px;padding:12px 18px 0}
+.dots i{flex:1;height:5px;border-radius:3px;background:var(--c-line)}
+.dots i.d{background:var(--c-ink-soft)}
+.dots i.c{background:var(--c-accent)}
+.steptext{padding:18px 18px 0;font-size:29px;line-height:1.25;font-weight:700;letter-spacing:-.005em;color:var(--c-ink)}
+.callouts{display:flex;gap:8px;padding:16px 18px 0;flex-wrap:wrap}
+.callouts span{font-size:16px;font-weight:700;padding:7px 12px;border-radius:var(--r-md);background:var(--c-ground)}
+.callouts span b{font-family:var(--f-mono);font-weight:400;color:var(--c-accent);margin-right:4px}
+.timer{margin:18px 18px 0;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:14px;background:var(--g-sky);position:relative;overflow:hidden}
+.timer .tt{font-family:var(--f-display);font-weight:600;font-size:56px;line-height:1;font-style:normal;color:var(--c-ink);letter-spacing:.02em}
+.timer small{display:block;font-size:13px;font-weight:700;color:var(--c-ink-soft)}
+.timer .play{margin-left:auto;width:58px;height:58px;border-radius:50%;background:var(--c-accent);display:grid;place-items:center;box-shadow:var(--glow);flex:none}
+.cooknav{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 18px;background:var(--c-surface);border-top:1px solid var(--c-line);display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.cooknav .btn{padding:16px 10px;font-size:17px}
+.cook-foot{text-align:center;font-size:13px;font-weight:600;color:var(--c-ink-soft);grid-column:1/-1}
+.cook-foot a{color:var(--c-accent);font-weight:800}
+
+/* kit */
+.kit{display:flex;flex-wrap:wrap;gap:20px;align-items:center;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-md);padding:24px}
+.kit .grp{display:flex;flex-direction:column;gap:8px}
+.kit .grp > small{font-family:var(--f-mono);font-size:11px;color:var(--c-ink-soft);text-transform:uppercase;letter-spacing:.1em}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;font-weight:700}
+.field input{font-family:var(--f-body);font-size:16px;padding:11px 14px;border-radius:var(--r-md);border:2px solid var(--c-ink);background:var(--c-surface);color:var(--c-ink);width:240px;max-width:100%;outline:none;box-shadow:0 0 0 3px rgba(61,79,168,.18)}
+.chk{display:flex;align-items:center;gap:10px;font-weight:600}
+.desk-scroll{overflow-x:auto;padding-bottom:8px}
+.desk{width:1280px;height:820px;border:1.5px solid var(--c-ink);border-radius:14px;overflow:hidden;background:var(--c-ground);display:flex;flex-direction:column}
+.dk-bar{height:34px;flex:none;display:flex;align-items:center;gap:7px;padding:0 14px;background:var(--c-surface);border-bottom:1px solid var(--c-line)}
+.dk-bar i{width:11px;height:11px;border-radius:50%;background:var(--c-line)}
+.dk-bar span{margin-left:16px;font-family:var(--f-mono);font-size:12px;color:var(--c-ink-soft);background:var(--c-ground);padding:3px 14px;border-radius:var(--r-pill)}
+.dk-head{height:64px;flex:none;display:flex;align-items:center;gap:36px;padding:0 28px;background:var(--c-surface);border-bottom:1px solid var(--c-line);position:relative}
+.dk-brand{display:flex;align-items:center;gap:10px}
+.dk-head nav{display:flex;gap:6px;flex:1}
+.dk-head nav a{text-decoration:none;color:var(--c-ink);font-weight:600;font-size:15px;padding:8px 14px;border-radius:var(--r-pill)}
+.dk-head nav a.on{background:var(--c-ground);color:var(--c-accent)}
+.dk-av{width:36px;height:36px;border-radius:50%;background:var(--c-ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+.dk-body{flex:1;display:grid;grid-template-columns:360px 1fr 280px;min-height:0}
+.dk-lib{background:var(--c-surface);border-right:1px solid var(--c-line);padding:20px 18px;overflow:hidden}
+.dk-lib h4,.dk-side h4{font-family:var(--f-display);font-weight:600;font-size:17px;margin-bottom:12px}
+.dk-search{display:flex;align-items:center;gap:8px;border:1.5px solid var(--c-line);border-radius:var(--r-md);padding:8px 12px;color:var(--c-ink-soft)}
+.dk-search input{border:none;outline:none;font:inherit;font-size:15px;flex:1;background:transparent;color:var(--c-ink)}
+.dk-tags{display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap}
+.dk-tag{font-family:var(--f-mono);font-size:12.5px;padding:3px 10px;border-radius:var(--r-pill);border:1px solid var(--c-line);background:var(--c-ground)}
+.dk-tag.on{background:var(--c-ink);border-color:var(--c-ink);color:#fff}
+.dk-list{list-style:none}
+.dk-r{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--c-line)}
+.dk-th{display:none}
+.dk-rt{flex:1;min-width:0}
+.dk-rt b{display:block;font-size:15px;line-height:1.25}
+.dk-rt small{font-size:12.5px;color:var(--c-ink-soft);font-weight:600}
+.dk-star{color:var(--c-ink-soft)}
+.dk-add{width:32px;height:32px;border-radius:50%;border:1px solid var(--c-line);display:grid;place-items:center;font-size:18px;font-weight:700;flex:none;color:var(--c-accent)}
+.dk-r.in .dk-add{background:var(--c-checked-bg);border-color:var(--c-checked);color:var(--c-checked)}
+.dk-plan{padding:24px 32px;overflow:hidden;display:flex;flex-direction:column}
+.dk-ph{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+.dk-k{font-family:var(--f-mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--c-accent)}
+.dk-ph h2{font-family:var(--f-display);font-weight:700;font-size:38px;line-height:1.05}
+.dk-d{font-weight:600;color:var(--c-ink-soft)}
+.dk-fb{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:var(--r-md);background:var(--c-surface);border:1px solid var(--c-line);font-weight:600;font-size:15px;margin-bottom:14px}
+.dk-fb svg{color:var(--c-ink-soft)}
+.dk-meals{list-style:none;display:grid;gap:10px}
+.dk-m{display:flex;align-items:center;gap:16px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-md);padding:12px 16px 12px 12px}
+.dk-no{font-family:var(--f-display);font-weight:700;font-size:22px;width:46px;height:52px;border-radius:8px;background:var(--c-ground);display:grid;place-items:center;flex:none}
+.dk-mt{flex:1;min-width:0}
+.dk-mt b{display:block;font-size:17px}
+.dk-mt small{font-size:13.5px;color:var(--c-ink-soft);font-weight:600}
+.dk-step{display:flex;align-items:center;border:1px solid var(--c-line);border-radius:var(--r-pill);overflow:hidden}
+.dk-step button{width:34px;height:32px;border:none;background:var(--c-surface);font-size:18px;font-weight:700;color:var(--c-ink);cursor:pointer}
+.dk-step output{min-width:58px;text-align:center;font-family:var(--f-mono);font-size:14px}
+.dk-step output::after{content:" serv"}
+.dk-x{color:var(--c-ink-soft);font-size:22px;width:24px;text-align:center}
+.dk-drop{margin-top:10px;border:2px dashed var(--c-line);border-radius:var(--r-md);padding:14px;text-align:center;color:var(--c-ink-soft);font-weight:600}
+.dk-foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--c-line);font-weight:600;color:var(--c-ink-soft)}
+.dk-side{border-left:1px solid var(--c-line);padding:20px 20px;background:var(--c-ground)}
+.dk-stats{display:grid;gap:10px}
+.dk-stats div{background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:baseline;gap:10px}
+.dk-stats b{font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1}
+.dk-stats small{font-weight:600;color:var(--c-ink-soft)}
+.dk-agent{margin-top:16px;padding:14px;border-radius:var(--r-md);background:var(--c-surface);border:1px solid var(--c-line)}
+.dk-agent p{font-size:14.5px;font-weight:600;margin:4px 0 6px}
+.dk-agent a{color:var(--c-accent);font-weight:800}
+footer{padding:28px 0 48px;font-family:var(--f-mono);font-size:13px;color:var(--c-ink-soft)}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <p class="kicker">Direction S1 · light synthwave · round 3</p>
+      <h1 class="dname">Dawn<span>Outrun</span></h1>
+      <p class="pitch">The neon night drive, recast at sunrise: a haze-blue sky that slowly warms to apricot, with one striped sun on the horizon, around a calm, flat kitchen tool.</p>
+      <ul class="moods"><li>first light</li><li>haze</li><li>airbrushed</li><li>road-trip</li><li>unhurried</li></ul>
+    </div>
+    <div class="rationale">
+      <p><b>One move, used three times.</b> The striped sun in its slow sky appears only in the brand mark, the recipe hero and the cooking timer. Lists, plan rows and steps are flat paper and ink.</p>
+      <p><b>Light, but still synthwave.</b> The sky runs from haze blue through lavender to apricot, with no hard edges. It reads as 80s and still works in a bright kitchen or a store under fluorescent light.</p>
+      <p><b>Built for the stove.</b> The step is 29px bold Barlow in deep indigo (14:1 on white). Oxanium is a quieter retro face, used for headings and the timer only.</p>
+      <p><b>Offline uses a different colour.</b> A flat amber banner, set apart from the dusk-blue actions, so a glance tells you nothing has synced yet.</p>
+    <div class="changes"><p class="ch-h">Removed since round 2</p><ul>
+        <li>The perspective grid everywhere: page hero, recipe hero, logo mark and app icon. The sun now sits on a single horizon line.</li>
+        <li>All glows, the chrome wordmark and its sun drop shadow. The wordmark is flat ink Oxanium.</li>
+        <li>VHS scanlines on the offline banner, and the SYNC and YOURS badges. Pending items now get a small amber dot.</li>
+        <li>Sunrise gradients on meal number tiles, progress dots, the week bar and the desktop header and thumbnails. These are now flat ground or dusk blue.</li>
+        <li>Most ink outlines on chips, callouts, the timer and steppers. These are now hairlines or plain fills.</li>
+      </ul><p class="keep"><b>Kept:</b> the striped sun rising out of a slow haze-blue-to-apricot sky.</p></div>
+    </div>
+  </div>
+  <div class="horizon"><div class="sun"></div><div class="grid-plane"></div></div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sec">Wordmark</h2>
+    <div class="wm-row">
+      <div class="wm-card sky">
+        <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD98A"/><stop offset=".55" stop-color="#FFB585"/><stop offset="1" stop-color="#EFA48E"/></linearGradient></defs></svg>
+        <svg width="58" height="34" viewBox="0 0 58 34" aria-hidden="true"><path d="M5 33 A24 24 0 0 1 53 33 Z" fill="url(#sg)"/><rect x="4" y="19" width="50" height="2.5" fill="#F0E4EC"/><rect x="4" y="25" width="50" height="2.5" fill="#F0E4EC"/><path d="M1 33 H57" stroke="#262848" stroke-width="2"/></svg>
+        <span class="wordmark">Simmery</span>
+        <span class="wm-note">primary · on sky</span>
+      </div>
+      <div class="wm-card light">
+        <svg width="50" height="29" viewBox="0 0 58 34" aria-hidden="true"><path d="M5 33 A24 24 0 0 1 53 33 Z" fill="url(#sg)"/><rect x="4" y="19" width="50" height="2.5" fill="#FFFFFF"/><rect x="4" y="25" width="50" height="2.5" fill="#FFFFFF"/><path d="M1 33 H57" stroke="#262848" stroke-width="2"/></svg>
+        <span class="wordmark">Simmery</span>
+        <span class="wm-note">everyday · on white</span>
+      </div>
+      <div class="wm-card small">
+        <div class="icons">
+          <svg width="64" height="64" viewBox="0 0 64 64" aria-label="App icon"><defs><linearGradient id="ig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DDE6F3"/><stop offset="1" stop-color="#FFE6D3"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#ig)"/><path d="M12 40 A20 20 0 0 1 52 40 Z" fill="url(#sg)"/><rect x="10" y="28" width="44" height="2.5" fill="#FFE6D3"/><rect x="10" y="34" width="44" height="2.5" fill="#FFE6D3"/><path d="M8 40 H56" stroke="#262848" stroke-width="2"/></svg>
+          <svg width="40" height="40" viewBox="0 0 64 64" aria-label="Small icon"><rect width="64" height="64" rx="15" fill="#262848"/><path d="M12 42 A20 20 0 0 1 52 42 Z" fill="url(#sg)"/><rect x="10" y="30" width="44" height="3" fill="#262848"/><rect x="10" y="36" width="44" height="3" fill="#262848"/></svg>
+        </div>
+        <span class="wordmark flat" style="font-size:30px">Simmery</span>
+        <span class="wm-note">icon · small mono</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sec">Palette</h2>
+    <div class="pal">
+      <div class="sw"><i style="background:#FFF7EF"></i><div><b>Ground · apricot paper</b><code>#FFF7EF</code></div></div>
+      <div class="sw"><i style="background:#262848"></i><div><b>Ink · last of the night</b><code>#262848</code></div></div>
+      <div class="sw"><i style="background:#3D4FA8"></i><div><b>Accent · dusk blue</b><code>#3D4FA8</code></div></div>
+      <div class="sw"><i style="background:var(--g-sunrise)"></i><div><b>Sun gradient</b><code>#FFD98A › #FFB585 › #EFA48E</code></div></div>
+      <div class="sw"><i style="background:var(--g-sky)"></i><div><b>Sky gradient</b><code>#DDE6F3 › #ECE3F1 › #FFE6D3</code></div></div>
+      <div class="sw"><i style="background:#0B7A78"></i><div><b>Checked · lagoon</b><code>#0B7A78</code></div></div>
+      <div class="sw"><i style="background:#FFE7B8"></i><div><b>Offline · amber</b><code>#FFE7B8 / #8A4B00</code></div></div>
+      <div class="sw"><i style="background:#FFFFFF;border-bottom:1px solid #E9E2DC"></i><div><b>Surface · cards</b><code>#FFFFFF</code></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sec">Type</h2>
+    <div class="type">
+      <div class="tcard">
+        <p class="lbl">Display · Oxanium 500–700</p>
+        <p class="spec-d">Week 44<br>Step 3 · 8:00</p>
+        <div class="scale">
+          <div><small>wordmark</small><span style="font-family:var(--f-display);font-size:34px;font-style:normal">Simmery</span></div>
+          <div><small>screen 26</small><span style="font-family:var(--f-display);font-size:26px;font-style:normal">Week 44</span></div>
+          <div><small>label 15</small><span style="font-family:var(--f-display);font-size:15px;font-style:normal">Ingredients</span></div>
+        </div>
+      </div>
+      <div class="tcard">
+        <p class="lbl">Body · Barlow 400–800</p>
+        <p class="spec-b"><b style="font-weight:800">Add the chickpeas and stock.</b> Simmer uncovered until the liquid has reduced by half.</p>
+        <div class="scale">
+          <div><small>step 29/700</small><span style="font-size:29px;font-weight:700;line-height:1.1">Simmer</span></div>
+          <div><small>title 24/800</small><span style="font-size:24px;font-weight:800">Braised chickpeas</span></div>
+          <div><small>body 16/500</small><span style="font-size:16px;font-weight:500">Baby spinach, 200 g</span></div>
+          <div><small>meta 13/600</small><span style="font-size:13px;font-weight:600">45 min · 4 servings</span></div>
+        </div>
+      </div>
+      <div class="tcard">
+        <p class="lbl">Utility · Share Tech Mono</p>
+        <p class="spec-m">2 × 400 g · 150 ml</p>
+        <div class="scale">
+          <div><small>amount 14</small><span style="font-family:var(--f-mono);font-size:14px;color:var(--c-accent)">1 tsp ground cumin</span></div>
+          <div><small>tag 12.5</small><span style="font-family:var(--f-mono);font-size:12.5px">one-pot</span></div>
+          <div><small>section 12</small><span style="font-family:var(--f-mono);font-size:12px;letter-spacing:.12em">PRODUCE</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sec">Screens</h2>
+    <div class="phones">
+
+      <!-- a. recipe detail -->
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="scroll">
+            <div class="rhero">
+              <div class="status" style="position:relative;z-index:3"><span>9:41</span><span class="r"><svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 10h2V7H1zM5 10h2V5H5zM9 10h2V3H9zM13 10h2V1h-2z" fill="#262848"/></svg><svg width="22" height="11" viewBox="0 0 22 11"><rect x=".5" y=".5" width="19" height="10" rx="2.5" fill="none" stroke="#262848"/><rect x="2" y="2" width="13" height="7" rx="1" fill="#262848"/></svg></span></div>
+              <span class="ib back" style="top:38px"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M11 3 5 9l6 6" fill="none" stroke="#262848" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <span class="ib fav" style="top:38px"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M4 2h10v14l-5-3.5L4 16z" fill="none" stroke="#262848" stroke-width="2" stroke-linejoin="round"/></svg></span>
+              <div class="sun"></div><div class="grid-plane"></div>
+            </div>
+            <div class="rbody">
+              <h3 class="rtitle">Braised chickpeas with spinach &amp; preserved lemon</h3>
+              <div class="meta">
+                <span><svg width="15" height="15" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#585C7E" stroke-width="1.6"/><path d="M8 4.5V8l2.5 1.5" fill="none" stroke="#585C7E" stroke-width="1.6" stroke-linecap="round"/></svg>45 min</span>
+                <span><svg width="15" height="15" viewBox="0 0 16 16"><circle cx="8" cy="5" r="2.8" fill="none" stroke="#585C7E" stroke-width="1.6"/><path d="M2.5 14c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5" fill="none" stroke="#585C7E" stroke-width="1.6"/></svg>4 servings</span>
+              </div>
+              <div class="chips"><span class="chip hot">vegetarian</span><span class="chip">Moroccan</span><span class="chip">one-pot</span></div>
+              <div class="rrow">
+                <span class="stars" aria-label="Rated 4 of 5">
+                  <svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 1.8l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.7l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z" fill="#3D4FA8"/></svg><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 1.8l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.7l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z" fill="#3D4FA8"/></svg><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 1.8l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.7l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z" fill="#3D4FA8"/></svg><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 1.8l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.7l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z" fill="#3D4FA8"/></svg><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 1.8l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.7l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z" fill="none" stroke="#3D4FA8" stroke-width="1.5"/></svg>
+                </span>
+                <small>Cooked 3 times</small>
+              </div>
+              <div class="ing-h"><h4>Ingredients</h4><span class="serv"><b>−</b>4<b>+</b></span></div>
+              <ul class="ing">
+                <li><b>2 × 400 g</b>tins chickpeas</li>
+                <li><b>200 g</b>baby spinach</li>
+                <li><b>1</b>preserved lemon</li>
+                <li><b>3 cloves</b>garlic</li>
+                <li><b>1 tsp</b>ground cumin</li>
+                <li><b>150 ml</b>vegetable stock</li>
+                <li><b>2 tbsp</b>olive oil</li>
+              </ul>
+            </div>
+          </div>
+          <div class="cta"><a class="btn btn-p btn-full" href="#">Start cooking <svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 3l6 5-6 5z" fill="#fff"/></svg></a></div>
+        </div>
+        <span class="phone-cap">a · Recipe detail</span>
+      </div>
+
+      <!-- b. week plan -->
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="r"><svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 10h2V7H1zM5 10h2V5H5zM9 10h2V3H9zM13 10h2V1h-2z" fill="#262848"/></svg><svg width="22" height="11" viewBox="0 0 22 11"><rect x=".5" y=".5" width="19" height="10" rx="2.5" fill="none" stroke="#262848"/><rect x="2" y="2" width="13" height="7" rx="1" fill="#262848"/></svg></span></div>
+          <div class="scroll">
+            <div class="wk-head">
+              <p class="k">THIS WEEK</p>
+              <h3>Week 44</h3>
+              <p>26 Oct – 1 Nov · 4 meals · 13 servings</p>
+            </div>
+            <div class="strip">
+              <svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="#585C7E" stroke-width="1.8"/><path d="M9 5v5M9 12.5v.5" stroke="#585C7E" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>Overlap: leeks used twice · Leftovers: ~150 ml cream</span>
+            </div>
+            <ul class="meals">
+              <li class="meal"><span class="n">1</span><span class="t"><b>Braised chickpeas</b><small>45 min · vegetarian</small></span><span class="sv">4 serv</span></li>
+              <li class="meal"><span class="n">2</span><span class="t"><b>Chicken &amp; leek pie</b><small>1 h 10 · leeks</small></span><span class="sv">4 serv</span></li>
+              <li class="meal"><span class="n">3</span><span class="t"><b>Miso salmon with greens</b><small>25 min</small></span><span class="sv">2 serv</span></li>
+              <li class="meal"><span class="n">4</span><span class="t"><b>Mushroom risotto</b><small>40 min · uses cream</small></span><span class="sv">3 serv</span></li>
+            </ul>
+            <div class="add-meal">+ Add a meal</div>
+          </div>
+          <nav class="nav">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 4h14v14H4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h6M8 11h6M8 14h4" stroke="currentColor" stroke-width="1.8"/></svg>Recipes</a>
+            <a href="#" class="on"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 15a8 8 0 0 1 16 0z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 18h18" stroke="currentColor" stroke-width="2"/></svg>Week</a>
+            <a href="#"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 6h14M4 11h14M4 16h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>List</a>
+            <a href="#"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 18V11M9 18V6M14 18v-9M19 18V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Stats</a>
+          </nav>
+        </div>
+        <span class="phone-cap">b · Week plan</span>
+      </div>
+
+      <!-- c. shopping list -->
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="r"><svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 10h2V7H1z" fill="#262848"/><path d="M5 10h2V5H5zM9 10h2V3H9zM13 10h2V1h-2z" fill="#D3D6E3"/></svg><svg width="22" height="11" viewBox="0 0 22 11"><rect x=".5" y=".5" width="19" height="10" rx="2.5" fill="none" stroke="#262848"/><rect x="2" y="2" width="9" height="7" rx="1" fill="#262848"/></svg></span></div>
+          <div class="appbar"><h3>Shopping · Week 44 <small style="font-family:var(--f-mono);font-weight:400;font-size:13px;color:var(--c-ink-soft)">3/10</small></h3><span class="ib"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 3v12M3 9h12" stroke="#262848" stroke-width="2.2" stroke-linecap="round"/></svg></span></div>
+          <div class="scroll">
+            <div class="offline" role="status">
+              <svg width="20" height="20" viewBox="0 0 20 20"><path d="M2 7.5a12 12 0 0 1 16 0M5 11a7.5 7.5 0 0 1 10 0M8 14.3a3 3 0 0 1 4 0" fill="none" stroke="#8A4B00" stroke-width="1.8" stroke-linecap="round"/><path d="M3 3l14 14" stroke="#8A4B00" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>Offline · 3 check-offs will sync when you're back online</span>
+            </div>
+                        <div class="shop-sec">
+              <h5>Produce</h5>
+              <ul class="items">
+                <li class="item done"><span class="cb on"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Baby spinach</span><span class="pend" title="Waiting to sync" aria-label="Waiting to sync"></span><span class="q">200 g</span></li>
+                <li class="item done"><span class="cb on"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Leeks</span><span class="pend" title="Waiting to sync" aria-label="Waiting to sync"></span><span class="q">3</span></li>
+                <li class="item"><span class="cb"></span><span class="nm">Chestnut mushrooms</span><span class="q">400 g</span></li>
+                <li class="item"><span class="cb"></span><span class="nm">Fresh coriander</span><span class="q">1 bunch</span></li>
+              </ul>
+              <h5>Chilled &amp; fish</h5>
+              <ul class="items">
+                <li class="item"><span class="cb"></span><span class="nm">Double cream</span><span class="q">500 ml pack<em>need 350 ml</em></span></li>
+                <li class="item"><span class="cb"></span><span class="nm">Salmon fillets</span><span class="q">2</span></li>
+              </ul>
+              <h5>Cupboard</h5>
+              <ul class="items">
+                <li class="item done"><span class="cb on"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Chickpeas</span><span class="pend" title="Waiting to sync" aria-label="Waiting to sync"></span><span class="q">2 × 400 g tin</span></li>
+                <li class="item"><span class="cb"></span><span class="nm">Arborio rice</span><span class="q">300 g</span></li>
+                <li class="item"><span class="cb"></span><span class="nm">Miso paste</span><span class="q">1 tbsp</span></li>
+                <li class="item"><span class="cb"></span><span class="nm">Kitchen roll</span><span class="q">added by you</span></li>
+              </ul>
+            </div>
+          </div>
+          <nav class="nav">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 4h14v14H4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h6M8 11h6M8 14h4" stroke="currentColor" stroke-width="1.8"/></svg>Recipes</a>
+            <a href="#"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 15a8 8 0 0 1 16 0z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 18h18" stroke="currentColor" stroke-width="2"/></svg>Week</a>
+            <a href="#" class="on"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 6h14M4 11h14M4 16h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>List</a>
+            <a href="#"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 18V11M9 18V6M14 18v-9M19 18V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Stats</a>
+          </nav>
+        </div>
+        <span class="phone-cap">c · Shopping list, offline</span>
+      </div>
+
+      <!-- d. cooking step -->
+      <div class="phone-wrap">
+        <div class="phone cook">
+          <div class="status"><span>9:41</span><span class="r"><svg width="16" height="11" viewBox="0 0 16 11"><path d="M1 10h2V7H1zM5 10h2V5H5zM9 10h2V3H9zM13 10h2V1h-2z" fill="#262848"/></svg><svg width="22" height="11" viewBox="0 0 22 11"><rect x=".5" y=".5" width="19" height="10" rx="2.5" fill="none" stroke="#262848"/><rect x="2" y="2" width="13" height="7" rx="1" fill="#262848"/></svg></span></div>
+          <div class="appbar"><span class="ib"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3 3 13" stroke="#262848" stroke-width="2.2" stroke-linecap="round"/></svg></span><h3 style="font-size:15px;color:var(--c-ink-soft)">Braised chickpeas</h3><span class="stepk">Step 3 of 7</span></div>
+          <div class="scroll">
+            <div class="dots"><i class="d"></i><i class="d"></i><i class="c"></i><i></i><i></i><i></i><i></i></div>
+            <p class="steptext">Add the chickpeas and stock. Simmer uncovered until the liquid has reduced by half.</p>
+            <div class="callouts"><span><b>2 × 400 g</b>chickpeas</span><span><b>150 ml</b>stock</span></div>
+            <div class="timer">
+              <div><small>Simmer timer</small><span class="tt">8:00</span></div>
+              <span class="play" aria-label="Start timer"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M7 4l11 7-11 7z" fill="#fff"/></svg></span>
+            </div>
+          </div>
+          <div class="cooknav">
+            <a class="btn btn-s" href="#"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="#262848" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</a>
+            <a class="btn btn-p" href="#">Next step<svg width="16" height="16" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <p class="cook-foot">Done early? <a href="#">Mark cooked</a></p>
+          </div>
+        </div>
+        <span class="phone-cap">d · Cooking step</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap" style="max-width:1316px">
+    <h2 class="sec">Desktop · Plan Week 44</h2>
+<div class="desk-scroll"><div class="desk">
+<div class="dk-bar"><i></i><i></i><i></i><span>simmery.home / week / 44</span></div>
+<header class="dk-head"><span class="dk-brand"><svg width="38" height="22" viewBox="0 0 58 34" aria-hidden="true"><path d="M5 33 A24 24 0 0 1 53 33 Z" fill="url(#sg)"/><rect x="4" y="19" width="50" height="2.5" fill="#FFFFFF"/><rect x="4" y="25" width="50" height="2.5" fill="#FFFFFF"/><path d="M1 33 H57" stroke="#262848" stroke-width="2"/></svg><span class="wordmark" style="font-size:26px">Simmery</span></span><nav><a href="#">Recipes</a><a href="#" class="on">Week</a><a href="#">Shopping list</a><a href="#">Stats</a><a href="#">Taste profile</a></nav><span class="dk-av">TK</span></header>
+<div class="dk-body">
+<aside class="dk-lib">
+<h4>Recipe library</h4>
+<label class="dk-search"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><input placeholder="Search 48 recipes" aria-label="Search recipes"></label>
+<div class="dk-tags"><span class="dk-tag on">vegetarian</span><span class="dk-tag">quick</span><span class="dk-tag">fish</span><span class="dk-tag">one-pot</span></div>
+<ul class="dk-list"><li class="dk-r in"><span class="dk-th"><i></i></span><span class="dk-rt"><b>Braised chickpeas with spinach &amp; preserved lemon</b><small>45 min · <span class="dk-star">&#9733;</span> 4/5 · cooked 3&times;</small></span><span class="dk-add" aria-label="In plan"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li><li class="dk-r in"><span class="dk-th"><i></i></span><span class="dk-rt"><b>Chicken &amp; leek pie</b><small>1 h 10 · <span class="dk-star">&#9733;</span> 5/5 · cooked 6&times;</small></span><span class="dk-add" aria-label="In plan"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li><li class="dk-r in"><span class="dk-th"><i></i></span><span class="dk-rt"><b>Miso salmon with greens</b><small>25 min · <span class="dk-star">&#9733;</span> 4/5 · cooked 2&times;</small></span><span class="dk-add" aria-label="In plan"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li><li class="dk-r in"><span class="dk-th"><i></i></span><span class="dk-rt"><b>Mushroom risotto</b><small>40 min · <span class="dk-star">&#9733;</span> 3/5 · cooked 4&times;</small></span><span class="dk-add" aria-label="In plan"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li><li class="dk-r"><span class="dk-th"><i></i></span><span class="dk-rt"><b>Lentil dal with crispy onions</b><small>35 min · <span class="dk-star">&#9733;</span> 5/5 · cooked 8&times;</small></span><span class="dk-add" aria-label="Add to week">+</span></li><li class="dk-r"><span class="dk-th"><i></i></span><span class="dk-rt"><b>Gnocchi with brown butter &amp; sage</b><small>20 min · <span class="dk-star">&#9733;</span> 4/5 · cooked 1&times;</small></span><span class="dk-add" aria-label="Add to week">+</span></li></ul>
+</aside>
+<main class="dk-plan">
+<div class="dk-ph"><div><p class="dk-k">Plan</p><h2>Week 44</h2><p class="dk-d">26 Oct – 1 Nov · 4 meals · 13 servings</p></div><a class="btn btn-s" href="#">Clear week</a></div>
+<div class="dk-fb"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 8v5M9 5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Overlap: leeks used twice · Leftovers: ~150 ml cream</div>
+<ol class="dk-meals"><li class="dk-m"><span class="dk-no">1</span><span class="dk-mt"><b>Braised chickpeas with spinach &amp; preserved lemon</b><small>45 min · vegetarian · Moroccan</small></span><span class="dk-step"><button aria-label="Fewer servings">&minus;</button><output>4</output><button aria-label="More servings">+</button></span><span class="dk-x" aria-label="Remove">&times;</span></li><li class="dk-m"><span class="dk-no">2</span><span class="dk-mt"><b>Chicken &amp; leek pie</b><small>1 h 10 · uses leeks</small></span><span class="dk-step"><button aria-label="Fewer servings">&minus;</button><output>4</output><button aria-label="More servings">+</button></span><span class="dk-x" aria-label="Remove">&times;</span></li><li class="dk-m"><span class="dk-no">3</span><span class="dk-mt"><b>Miso salmon with greens</b><small>25 min · fish</small></span><span class="dk-step"><button aria-label="Fewer servings">&minus;</button><output>2</output><button aria-label="More servings">+</button></span><span class="dk-x" aria-label="Remove">&times;</span></li><li class="dk-m"><span class="dk-no">4</span><span class="dk-mt"><b>Mushroom risotto</b><small>40 min · uses cream</small></span><span class="dk-step"><button aria-label="Fewer servings">&minus;</button><output>3</output><button aria-label="More servings">+</button></span><span class="dk-x" aria-label="Remove">&times;</span></li></ol>
+<p class="dk-drop">Drag a recipe here, or press + in the library</p>
+<div class="dk-foot"><span>10 items to buy, merged across 4 recipes</span><a class="btn btn-p" href="#">Make shopping list</a></div>
+</main>
+<aside class="dk-side">
+<h4>This week at a glance</h4>
+<div class="dk-stats"><div><b>13</b><small>servings</small></div><div><b>3</b><small>cuisines</small></div><div><b>10</b><small>items to buy</small></div></div>
+<div class="dk-agent"><p class="dk-k">Agent</p><p>Your agent planned this week on Sat 24 Oct.</p><a href="#">Adjust</a></div>
+</aside>
+</div></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sec">UI kit</h2>
+    <div class="kit">
+      <div class="grp"><small>Primary</small><a class="btn btn-p" href="#">Plan this week</a></div>
+      <div class="grp"><small>Secondary</small><a class="btn btn-s" href="#">Save draft</a></div>
+      <div class="grp"><small>Tag chips</small><div class="chips"><span class="chip hot">vegetarian</span><span class="chip">one-pot</span></div></div>
+      <div class="grp field"><small>Text input</small><label for="k1">Recipe name</label><input id="k1" value="Mushroom risotto"></div>
+      <div class="grp"><small>Checkbox</small>
+        <span class="chk"><span class="cb on"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Leeks</span>
+        <span class="chk"><span class="cb"></span>Salmon fillets</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">Dawn Outrun · S1 · round 3 · light only. The sky and the striped sun appear in the mark, the recipe hero and the timer. Everything else is flat.</div></footer>
+</body>
+</html>
