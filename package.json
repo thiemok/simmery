@@ -4,13 +4,32 @@
   "private": true,
   "description": "Recipe management, weekly meal planning, shopping and cooking, with an MCP server for agent-assisted planning",
   "scripts": {
-    "build": "nx run-many --target=build --all",
-    "test": "nx run-many --target=test --all",
-    "lint": "nx run-many --target=lint --all"
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "nx run-many -t test",
+    "build": "nx run-many -t build",
+    "format": "nx format:write",
+    "format:check": "nx format:check"
   },
-  "packageManager": "pnpm@10.13.1",
   "devDependencies": {
-    "@nx/workspace": "^22.7.12",
-    "nx": "^22.7.12"
-  }
+    "@nx/js": "24.0.1",
+    "@nx/oxlint": "24.0.1",
+    "@nx/react": "24.0.1",
+    "@nx/vite": "24.0.1",
+    "@nx/vitest": "24.0.1",
+    "@nx/web": "24.0.1",
+    "@nx/workspace": "24.0.1",
+    "@swc/helpers": "~0.5.18",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "~5.0.1",
+    "jiti": "2.4.2",
+    "nx": "24.0.1",
+    "oxfmt": "0.74.0",
+    "oxlint": "^1.75.0",
+    "tslib": "^2.3.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.0",
+    "vitest": "~5.0.1"
+  },
+  "packageManager": "pnpm@10.13.1"
 }

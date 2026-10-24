@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # Job id `validate` is the required status check in .github/rulesets/branch-main.json.
@@ -41,5 +41,8 @@ jobs:
       - name: Derive affected SHAs
         uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4.4.0
 
-      - name: Lint, test, build affected
-        run: pnpm nx affected -t lint test build
+      - name: Check formatting
+        run: pnpm nx format:check
+
+      - name: Lint, typecheck, test, build affected
+        run: pnpm nx affected -t lint typecheck test build

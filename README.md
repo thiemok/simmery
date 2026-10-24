@@ -17,5 +17,7 @@ Requires Node (see `.nvmrc`) and pnpm.
 
 ```bash
 pnpm install
-pnpm nx run-many -t lint test build
+cp .env.example .env
+docker compose up -d   # local Postgres
+pnpm nx run-many -t lint typecheck test build
 ```
