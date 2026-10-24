@@ -42,7 +42,7 @@ jobs:
         uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4.4.0
 
       - name: Check formatting
-        run: pnpm nx format:check
+        run: pnpm nx format:check --all
 
       - name: Lint, typecheck, test, build affected
         run: pnpm nx affected -t lint typecheck test build

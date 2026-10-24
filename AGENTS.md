@@ -23,7 +23,7 @@ The product contract lives in `docs/plans/`. Read the latest plan before startin
 - Node version is pinned in `.nvmrc`; install with `pnpm install`.
 - Local Postgres: `docker compose up -d`. Copy `.env.example` to `.env`; every variable the server reads is listed there.
 - Tests run on PGlite and need no running database.
-- Common tasks: `pnpm nx affected -t lint typecheck test build` (what CI runs), `pnpm nx run <project>:<target>` for one project, `pnpm nx format:write` before committing (oxfmt; CI runs `nx format:check`, `docs/` is excluded).
+- Common tasks: `pnpm nx affected -t lint typecheck test build` (what CI runs), `pnpm nx run <project>:<target>` for one project, `pnpm nx format:write` before committing (oxfmt; CI runs `nx format:check --all`, `docs/` is excluded).
 - TypeScript is pinned to the 6.0 line (`~6.0.3`) that Nx 24 supports; do not bump to 7.x until Nx does.
 - New projects use the Nx TS solution setup: generators register them in the root `tsconfig.json` references, and `build`, `typecheck`, `lint` and `test` targets are inferred by the plugins in `nx.json`.
 - Linting is oxlint (`.oxlintrc.json` at the root, `lint` target inferred by `@nx/oxlint`); formatting is oxfmt (`.oxfmtrc.json`). There is no ESLint or Prettier: pass `--linter=none` to generators that offer a linter.
