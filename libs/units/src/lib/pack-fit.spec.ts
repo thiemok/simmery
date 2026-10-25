@@ -55,6 +55,28 @@ describe('packFit', () => {
     });
   });
 
+  it('keeps mixing sizes when exact pack sizes would exceed the search budget', () => {
+    expect(packFit(1800, [500, 340.194])).toEqual({
+      packs: [
+        { size: 500, count: 3 },
+        { size: 340.194, count: 1 },
+      ],
+      purchased: 1840.194,
+      leftover: 40.194,
+    });
+  });
+
+  it('mixes sizes produced by unit conversion', () => {
+    expect(packFit(55, [16.666667, 40])).toEqual({
+      packs: [
+        { size: 40, count: 1 },
+        { size: 16.666667, count: 1 },
+      ],
+      purchased: 56.666667,
+      leftover: 1.666667,
+    });
+  });
+
   it('buys nothing when nothing is needed', () => {
     expect(packFit(0, [200, 500])).toEqual({ packs: [], purchased: 0, leftover: 0 });
   });

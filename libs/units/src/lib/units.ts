@@ -15,8 +15,6 @@ function countUnit(code: string, spellings: readonly string[]): RegistryEntry {
   return { code, dimension: `count:${code}`, toBase: 1, spellings };
 }
 
-// Ambiguous units (cup, oz, fl oz, lb) are deliberately absent; users add them as
-// per-ingredient conversions instead.
 const registry: readonly RegistryEntry[] = [
   { code: 'mg', dimension: 'mass', toBase: 0.001, spellings: ['milligram', 'milligrams'] },
   { code: 'g', dimension: 'mass', toBase: 1, spellings: ['gram', 'grams'] },

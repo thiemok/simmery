@@ -12,8 +12,10 @@ export interface PackFit {
   leftover: number;
 }
 
-const SCALE = 1e6;
+const MICRO = 1e6;
 const STATE_BUDGET = 1_000_000;
+// Search granularities in micro-units: exact, then 1/1000 of a unit, then whole units.
+const STEPS = [1, 1e3, 1e6];
 
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
@@ -27,18 +29,58 @@ function toFit(sizes: readonly number[], counts: readonly number[], needed: numb
   return { packs, purchased, leftover: roundAmount(purchased - needed) };
 }
 
-/** Best combination of a single pack size; used when the exact search would be too large. */
 function singleSizeFit(sizes: readonly number[], needed: number): PackFit {
-  let best: { index: number; count: number; excess: number } | undefined;
-  sizes.forEach((size, index) => {
+  let best = { index: 0, count: Infinity, excess: Infinity };
+  for (const [index, size] of sizes.entries()) {
     const count = Math.ceil(needed / size);
     const excess = count * size - needed;
-    if (!best || excess < best.excess || (excess === best.excess && count < best.count)) {
+    if (excess < best.excess || (excess === best.excess && count < best.count)) {
       best = { index, count, excess };
     }
-  });
-  const counts = sizes.map((_, index) => (index === best?.index ? best.count : 0));
+  }
+  const counts = sizes.map((_, index) => (index === best.index ? best.count : 0));
   return toFit(sizes, counts, needed);
+}
+
+/**
+ * Exact least-excess search on a grid of `step` micro-units. Pack sizes round down and the need
+ * rounds up, so any combination found still covers the real need. Returns null when the grid
+ * would exceed the state budget.
+ */
+function searchCounts(sizes: readonly number[], needed: number, step: number): number[] | null {
+  const scaled = sizes.map((size) => Math.floor(Math.round(size * MICRO) / step));
+  if (scaled.some((size) => size === 0)) return null;
+  const divisor = scaled.reduce(gcd);
+  const units = scaled.map((size) => size / divisor);
+  const target = Math.ceil(Math.ceil(Math.round(needed * MICRO) / step) / divisor);
+  const limit = target + (units[0] ?? 0);
+  if (!Number.isSafeInteger(limit) || limit > STATE_BUDGET) return null;
+
+  // Sizes are sorted descending and only strictly fewer packs replace an entry, so ties keep larger packs.
+  const fewestPacks = new Int32Array(limit + 1).fill(-1);
+  const lastPackIndex = new Int32Array(limit + 1);
+  fewestPacks[0] = 0;
+  let sum = 0;
+  while (sum < target || fewestPacks[sum] === -1) {
+    sum++;
+    for (let index = 0; index < units.length; index++) {
+      const previous = sum - units[index];
+      if (previous < 0 || fewestPacks[previous] === -1) continue;
+      const count = fewestPacks[previous] + 1;
+      if (fewestPacks[sum] === -1 || count < fewestPacks[sum]) {
+        fewestPacks[sum] = count;
+        lastPackIndex[sum] = index;
+      }
+    }
+  }
+
+  const counts = sizes.map(() => 0);
+  while (sum > 0) {
+    const index = lastPackIndex[sum];
+    counts[index]++;
+    sum -= units[index];
+  }
+  return counts;
 }
 
 /**
@@ -61,40 +103,9 @@ export function packFit(needed: number, packSizes: readonly number[]): PackFit |
     return { packs: [], purchased: 0, leftover: 0 };
   }
 
-  const scaled = sizes.map((size) => Math.round(size * SCALE));
-  const divisor = scaled.reduce(gcd);
-  const units = scaled.map((size) => size / divisor);
-  const target = Math.ceil(Math.round(needed * SCALE) / divisor);
-  const limit = target + (units[0] ?? 0);
-  if (!Number.isSafeInteger(limit) || limit > STATE_BUDGET) {
-    return singleSizeFit(sizes, needed);
+  for (const step of STEPS) {
+    const counts = searchCounts(sizes, needed, step);
+    if (counts) return toFit(sizes, counts, needed);
   }
-
-  // minPacks[s]: fewest packs summing to exactly s; lastPack[s]: index of the pack added last.
-  // Sizes are sorted descending and only strictly fewer packs replace an entry, so ties keep larger packs.
-  const minPacks = new Int32Array(limit + 1).fill(-1);
-  const lastPack = new Int32Array(limit + 1);
-  minPacks[0] = 0;
-  for (let sum = 1; sum <= limit; sum++) {
-    units.forEach((unit, index) => {
-      const previous = sum - unit;
-      if (previous < 0 || minPacks[previous] === -1) return;
-      const count = minPacks[previous] + 1;
-      if (minPacks[sum] === -1 || count < minPacks[sum]) {
-        minPacks[sum] = count;
-        lastPack[sum] = index;
-      }
-    });
-  }
-
-  let sum = target;
-  while (minPacks[sum] === -1) sum++;
-
-  const counts = sizes.map(() => 0);
-  while (sum > 0) {
-    const index = lastPack[sum];
-    counts[index]++;
-    sum -= units[index];
-  }
-  return toFit(sizes, counts, needed);
+  return singleSizeFit(sizes, needed);
 }

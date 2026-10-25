@@ -20,6 +20,20 @@ describe('normalize', () => {
     expect(normalize(250, 'ml', milk)).toEqual({ resolved: true, amount: 0.25 });
   });
 
+  it.each([
+    [1, 'mg', flour, 0.001],
+    [1, 'kg', flour, 1000],
+    [1, 'ml', oil, 1],
+    [1, 'cl', oil, 10],
+    [1, 'dl', oil, 100],
+    [1, 'l', oil, 1000],
+    [1, 'tsp', oil, 5],
+    [1, 'tbsp', oil, 15],
+    [2, 'litres', oil, 2000],
+  ])('converts %d %s through its registry factor', (amount, unit, ingredient, expected) => {
+    expect(normalize(amount, unit, ingredient)).toEqual({ resolved: true, amount: expected });
+  });
+
   it('matches unit spellings case-insensitively', () => {
     expect(normalize(500, ' Grams', flour)).toEqual({ resolved: true, amount: 500 });
   });
