@@ -17,7 +17,7 @@ execution: code
 - **Means:** One TypeScript service (Hono + Drizzle on Postgres) serving a React PWA, a typed JSON API and a remote MCP endpoint over one shared domain library, signed in through WorkOS AuthKit (KTD1, KTD2, KTD3).
 - **Authority order:** Product Contract Requirements win on behavior; Planning Contract KTDs win on mechanism; units carry only local detail.
 - **Stop conditions:** Stop and ask if a requirement cannot be met as written, if WorkOS AuthKit cannot gate sign-up to invitations or serve MCP OAuth, or if a unit would need data shared across users.
-- **Execution profile:** Units U1–U10 land as separate PRs in dependency order; U11 builds and publishes the image and chart, while the live rollout waits on the cluster prerequisites (THI-49, THI-50).
+- **Execution profile:** Units U1–U10 and U12 land as separate PRs in dependency order; U11 builds and publishes the image and chart, while the live rollout waits on the cluster prerequisites (THI-49, THI-50).
 - **Open blockers:** None for building U1–U11. The live rollout at the end of U11 waits on THI-49 (public exposure path) and THI-50 (Postgres on the cluster).
 - **Product Contract preservation:** changed: R17 (per-line pack suggestions) removed and AE2 rewritten — the user decided during plan review that buying packs is left to them and pack sizes only drive least-waste leftover estimates. Outstanding Questions resolved during planning were removed and now live in KTDs.
 
@@ -325,6 +325,7 @@ docker-compose.yml   local Postgres
 - claude.ai and Claude Code accept AuthKit as an MCP authorization server via Client ID Metadata Documents or DCR.
 - Week boundaries use ISO weeks (Monday start) in the user's browser time zone; the week key is `YYYY-Www`.
 - A share link is an unguessable random token in the URL; a revoked token returns a "no longer shared" page.
+- The built-in unit registry is metric (`mg`, `g`, `kg`, `ml`, `cl`, `dl`, `l`), kitchen spoons (`tsp` 5 ml, `tbsp` 15 ml) and count-like units (`piece`, `clove`, `pinch`, `bunch`, `slice`, `sprig`, `can`); `cup`, `fl oz`, `oz` and `lb` are left out as ambiguous and enter only as per-ingredient conversions (U3).
 - Deleting a recipe that was ever planned archives it (hidden from the collection and from planning) rather than removing it, so history stays intact for R20.
 
 ### Risks & Dependencies
@@ -340,7 +341,7 @@ docker-compose.yml   local Postgres
 
 ### Sequencing
 
-U1 → U2 → U3 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3's `libs/units` work can start in parallel with U2.
+U1 → U2 → U3 → U12 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3 (`libs/units`) needs only U1 and can land before or in parallel with U2; U12 (catalog) needs both U2 and U3. U3 and U12 were one unit until the U3 deepening on 2026-10-24 split them so the pure library can ship while U2 is open; Linear THI-53 covers both.
 
 ---
 
@@ -390,37 +391,70 @@ U1 → U2 → U3 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3's 
   - Deleting a user cascades away all of their rows.
 - **Verification:** Schema tests pass on PGlite via `pnpm nx run db:test`; running `pnpm nx run db:db-generate` after the committed migrations reports no schema changes and leaves `git status` clean.
 
-### U3. Units and catalog domain
+### U3. Units library
 
-- **Goal:** Ingredient catalog operations and unit normalization that every other area relies on.
-- **Requirements:** R3, R4, R5, R6, R9, AE1; KTD6, KTD7.
-- **Dependencies:** U2 (catalog), none for `libs/units`.
-- **Files:** `libs/units/src/units.ts`, `libs/units/src/pack-fit.ts`, `libs/units/src/units.test.ts`, `libs/units/src/pack-fit.test.ts`, `libs/domain/src/catalog.ts`, `libs/domain/src/catalog.test.ts`.
+- **Goal:** A pure `libs/units` package (`@simmery/units`) that every amount in the system goes through: unit lookup, normalization into an ingredient's canonical unit, and least-waste pack fit.
+- **Requirements:** R4, R5, R6, R13, AE1, AE2, AE3; KTD6, KTD7.
+- **Dependencies:** U1. No database; it does not wait for U2.
+- **Files:** `libs/units/src/index.ts`, `libs/units/src/lib/units.ts`, `libs/units/src/lib/normalize.ts`, `libs/units/src/lib/pack-fit.ts`, `libs/units/src/lib/units.spec.ts`, `libs/units/src/lib/normalize.spec.ts`, `libs/units/src/lib/pack-fit.spec.ts`, root `tsconfig.json` (project reference added by the generator).
 - **Approach:**
-  1. `libs/units`: unit registry with dimensions (mass, volume, count-like units such as piece/clove/pinch), built-in same-dimension factors, `normalize(amount, unit, ingredient)` returning a canonical amount or an unresolved flag.
-  2. `pack-fit`: least excess, then fewest packs (KTD7).
-  3. `catalog`: list/search (name + aliases, case-insensitive), create, update (pack sizes, conversions, aliases), user-scoped.
-  4. Changing an ingredient's canonical unit is refused while recipe lines reference it (would silently invalidate stored amounts).
-- **Execution note:** Implement `libs/units` test-first; it is pure and every downstream number depends on it.
+  1. Scaffold with the `@nx/js:library` generator (`--linter=none`, Vitest), mirroring `libs/placeholder` (source under `src/lib/`, `*.spec.ts`, `simmery` export condition).
+  2. Unit registry: each known unit has a code, a dimension and accepted spellings, matched case-insensitively after trimming. Mass: `mg`, `g`, `kg`. Volume: `ml`, `cl`, `dl`, `l`, `tsp` (5 ml), `tbsp` (15 ml). Count-like: `piece`, `clove`, `pinch`, `bunch`, `slice`, `sprig`, `can`; each count-like unit is its own dimension, so no built-in factor links two of them. Spellings cover singular, plural and full names (`grams`, `litre`, `teaspoon`). Ambiguous units (`cup`, `oz`, `fl oz`, `lb`) are not built in; a user can still add them as per-ingredient conversions.
+  3. Unknown unit strings are allowed. They are compared trimmed and lowercased, and only normalize through an explicit ingredient conversion for that unit (e.g. `handful`), never through the registry.
+  4. `normalize(amount, unit, ingredient)` takes the ingredient's canonical unit and its conversions (`unit`, `factor`, where 1 `unit` = `factor` canonical units; "1 clove ≈ 5 g" on a `clove` ingredient is stored as `g` → 0.2). It returns either a canonical amount or an unresolved result naming the unit. Resolution order follows the High-Level Technical Design flowchart (KTD6): same unit, then a direct ingredient conversion, then one built-in same-dimension hop into the canonical unit, else unresolved. Nothing crosses dimensions without an ingredient conversion. Chaining a built-in hop into a conversion's unit (`1 kg` garlic through a `g` conversion) was considered and not built: KTD6 does not allow it, and the line is flagged at entry so the user adds the conversion; revisit if such flags turn out to be common.
+  5. Results are rounded to 6 decimal places so factor arithmetic (`50 × 0.2`) yields exact-looking amounts. Negative, NaN or infinite amounts throw a `RangeError`; adapters validate input first, so reaching it is a programming error.
+  6. `packFit(needed, packSizes)` follows KTD7: least excess, then fewest packs, then larger packs. With no pack sizes it returns no estimate (R13, AE3). It returns the chosen packs with counts, the purchased total and the leftover. Search: round the needed amount and pack sizes to 6 decimals and scale by a fixed 1e6; reduce only the pack sizes by their greatest common divisor `g` (the needed amount stays out of the gcd, since scaled week totals are often fractional); find the smallest reachable sum ≥ `ceil(scaledNeeded / g)` with an unbounded-knapsack min-count table up to that target plus the largest reduced pack; compute the leftover in real units. The state budget (about 1e6) is checked from the reduced target before allocating; above it, the search retries on coarser grids (1/1000 of a unit, then whole units, with pack sizes rounded down and the need rounded up so the result still covers the need), and only when even whole units exceed the budget does packFit fall back to the best single-size combination, so an absurd amount from an agent cannot stall `evaluate_week`.
+- **Execution note:** Implement test-first; it is pure and every downstream number depends on it.
+- **Patterns to follow:** `libs/placeholder` for project layout, package exports and the Vitest config.
 - **Test scenarios:**
+  - Registry: `G`, ` grams ` and `gram` all resolve to `g`; `teaspoon` resolves to `tsp`; `cup` is unknown.
+  - Registry: `clove` and `piece` have different dimensions.
   - `normalize(500, g, flour[canonical g])` returns 500.
   - `normalize(1, kg, flour[canonical g])` returns 1000 via the built-in table.
-  - Covers AE1. `normalize(50, g, garlic[canonical clove, no conversion])` returns an unresolved flag; after adding `1 clove = 5 g`, it returns 10.
   - `normalize(2, tbsp, oil[canonical ml])` returns 30.
-  - `normalize(1, piece, flour[canonical g])` with no conversion returns unresolved (no cross-dimension guessing).
-  - Pack fit: need 350, packs [200, 500] → two 200, leftover 50.
+  - `normalize(250, ml, milk[canonical l])` returns 0.25.
+  - Covers AE1. `normalize(50, g, garlic[canonical clove, no conversion])` is unresolved and names `g`; with conversion `g` → 0.2 it returns 10.
+  - `normalize(1, kg, garlic[canonical clove, conversion g → 0.2])` is unresolved (no chained hop).
+  - `normalize(1, piece, flour[canonical g])` with no conversion is unresolved (no cross-dimension guessing).
+  - `normalize(2, Handful, spinach[canonical g, conversion handful → 30])` returns 60; `normalize(2, handful, spinach[canonical g])` is unresolved.
+  - `normalize(0, g, flour[canonical g])` returns 0; `normalize(-1, g, …)` and `normalize(NaN, g, …)` throw.
+  - Covers AE2. Pack fit: need 350, packs [200, 500] → two 200, purchased 400, leftover 50.
   - Pack fit: need 400, packs [200, 500] → two 200, leftover 0.
-  - Pack fit: need 0 → no packs, leftover 0; no pack sizes → no leftover estimate.
-  - Catalog search finds "spring onion" by alias "scallion".
-  - Catalog calls for user A never return user B's ingredients.
-  - Changing canonical unit of an ingredient used by a recipe is rejected.
-- **Verification:** All unit and catalog tests pass.
+  - Pack fit: need 400, packs [200, 400] → one 400 (fewest packs breaks the tie).
+  - Pack fit: need 0 → no packs, leftover 0.
+  - Covers AE3. Pack fit with no pack sizes → no estimate.
+  - Pack fit: need 1.5, packs [0.5, 1] (e.g. kg) → leftover 0, two packs.
+  - Pack fit: need 66.666667, packs [200, 500] → one 200 through the table, not the fallback.
+  - Pack fit: need 650.000001, packs [200, 500] → purchased 700 (200 + 500).
+  - Pack fit: need 1e12, packs [7, 13] completes quickly through the fallback with a valid, non-negative leftover.
+- **Verification:** `units` lint, typecheck, test and build pass; the package exports the registry lookup, `normalize` and `packFit` for U4, U5 and U12.
+
+### U12. Catalog domain
+
+- **Goal:** User-scoped ingredient catalog operations that recipes, planning and both adapters build on.
+- **Requirements:** R2, R3, R4, R5, R9; KTD2, KTD4, KTD6.
+- **Dependencies:** U2 (schema, PGlite testing helper), U3.
+- **Files:** `libs/domain/src/catalog.ts`, `libs/domain/src/catalog.test.ts`.
+- **Approach:**
+  1. Scaffold `libs/domain` if U2 has not (same generator settings as U3).
+  2. List/search by name and aliases, case-insensitive, scoped to the caller.
+  3. Create and update an ingredient (name, aliases, canonical unit, pack sizes, conversions). Canonical and conversion units accept any non-empty string: a known spelling is stored as its registry code (`grams` → `g`), any other string trimmed and lowercased, matching how `normalize` compares units. A conversion for the canonical unit itself, and non-positive factors or pack sizes, are rejected.
+  4. Changing an ingredient's canonical unit is refused while recipe lines reference it (it would silently invalidate stored amounts).
+  5. An ingredient ID owned by another user is treated as not found (KTD4).
+- **Test scenarios:**
+  - Catalog search finds "spring onion" by alias "scallion", and by "SPRING".
+  - Creating a second "Flour" for the same user fails with a duplicate-name error; another user can create "Flour".
+  - Catalog calls for user A never return user B's ingredients; updating user B's ingredient as user A is not found.
+  - Changing the canonical unit of an ingredient used by a recipe line is rejected; an unused ingredient's canonical unit can change.
+  - Adding a conversion with factor 0 or for the canonical unit is rejected.
+  - A `handful` conversion is accepted; a `Grams` conversion is stored as `g`.
+- **Verification:** Catalog tests pass on PGlite.
 
 ### U4. Recipes domain
 
 - **Goal:** Create, edit, read and delete recipes with normalized ingredient lines.
 - **Requirements:** R6, R7, R8, R9; KTD2, KTD6.
-- **Dependencies:** U3.
+- **Dependencies:** U3, U12.
 - **Files:** `libs/domain/src/recipes.ts`, `libs/domain/src/recipes.test.ts`.
 - **Approach:** Save takes the full recipe (title, servings, lines, steps, tags, source URL) and replaces lines/steps/tags transactionally. Each line references an existing ingredient ID or a `newIngredient` payload created in the same transaction. Save fails with a structured per-line error list when any line is unresolved (R6). Every referenced ingredient ID must belong to the caller (KTD4). The source URL must be absolute `http` or `https`; other schemes (`javascript:`, `data:`) are rejected, since recipes can come from untrusted pages and render on the public share view. Search filters by title substring and tag.
 - **Test scenarios:**
@@ -539,7 +573,7 @@ U1 → U2 → U3 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3's 
 - **Files:** `apps/web/src/main.tsx`, `apps/web/src/routes/**`, `apps/web/src/api/client.ts`, `apps/web/src/components/**`, `apps/web/src/**/*.test.tsx`, `apps/web/e2e/*.spec.ts`.
 - **Approach:**
   1. Routes: recipes (list, detail, edit), catalog, week (plan view with overlap/leftover panel), cook view (step-by-step, scaled), stats, taste profile, share view `/s/:token` with import wizard.
-  2. Recipe editor with ingredient autocomplete over catalog + aliases and inline "create ingredient". Inline create asks for name, canonical unit (prefilled from the line's unit, required) and optional pack sizes, and notes that the canonical unit is fixed once recipes use it (U3). Unresolved-unit flags render on the offending line with two actions: "convert" replaces that line's amount and unit; "add conversion" stores a factor into the canonical unit on the ingredient and re-checks every flagged line (R6).
+  2. Recipe editor with ingredient autocomplete over catalog + aliases and inline "create ingredient". Inline create asks for name, canonical unit (prefilled from the line's unit, required) and optional pack sizes, and notes that the canonical unit is fixed once recipes use it (U12). Unresolved-unit flags render on the offending line with two actions: "convert" replaces that line's amount and unit; "add conversion" stores a factor into the canonical unit on the ingredient and re-checks every flagged line (R6).
   3. Import wizard shows each source line with a suggested match (name/alias) and lets the user pick or create; same flag handling.
   4. Week view recomputes evaluation on every change via the API.
 - **Test scenarios:**
@@ -594,7 +628,7 @@ U1 → U2 → U3 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3's 
 |---|---|---|
 | Lint | `pnpm nx affected -t lint` | every unit |
 | Typecheck | `pnpm nx affected -t typecheck` | every unit |
-| Unit and integration tests (PGlite) | `pnpm nx affected -t test` | U2–U10 |
+| Unit and integration tests (PGlite where a database is used) | `pnpm nx affected -t test` | U2–U10, U12 |
 | Web E2E (Playwright) | `pnpm nx run web:e2e` | U9, U10 |
 | Build | `pnpm nx affected -t build` | every unit |
 | Container smoke | build image, run, `curl /healthz` | U11 |

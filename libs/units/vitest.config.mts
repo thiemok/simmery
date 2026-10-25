@@ -2,9 +2,9 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/libs/placeholder',
+  cacheDir: '../../node_modules/.vite/libs/units',
   test: {
-    name: 'placeholder',
+    name: 'units',
     watch: false,
     globals: true,
     environment: 'node',
