@@ -351,10 +351,10 @@ U1 → U2 → U3 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3's 
 - **Goal:** A TypeScript Nx workspace where libs and apps can be generated, linted, type-checked and tested in CI.
 - **Requirements:** Supports all; KTD11, KTD12.
 - **Dependencies:** None.
-- **Files:** `package.json`, `nx.json`, `tsconfig.base.json`, `eslint.config.mjs`, `.prettierrc`, per-project `vitest.config.ts`, `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`, `AGENTS.md`.
+- **Files:** `package.json`, `nx.json`, `tsconfig.base.json`, `.oxlintrc.json`, `.oxfmtrc.json`, per-project `vitest.config.ts`, `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`, `AGENTS.md`.
 - **Approach:**
-  1. Bump `nx` and `@nx/workspace` to the current major and add `@nx/js`, `@nx/vite`, `@nx/vitest`, `@nx/react`, `@nx/eslint`; test targets are inferred from per-project `vitest.config.ts` (Vitest 4+ dropped the root workspace file).
-  2. Shared strict TS config (`"types": ["node"]`, required by MCP SDK v2 typings), ESLint flat config, Prettier.
+  1. Bump `nx` and `@nx/workspace` to the current major and add `@nx/js`, `@nx/vite`, `@nx/vitest`, `@nx/react`, `@nx/oxlint`; test targets are inferred from per-project `vitest.config.ts` (Vitest 4+ dropped the root workspace file).
+  2. Shared strict TS config (`"types": ["node"]`, required by MCP SDK v2 typings), oxlint and oxfmt (session-settled: user-directed — chosen over ESLint and Prettier; generators run with `--linter=none`).
   3. `docker-compose.yml` with Postgres for local dev and `.env.example` listing every variable the server reads.
   4. CI keeps `pnpm nx affected -t lint test build` and adds `typecheck`.
   5. Update `AGENTS.md` with dev commands and the env file.
@@ -365,22 +365,30 @@ U1 → U2 → U3 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U11. U3's 
 ### U2. Database schema and migrations
 
 - **Goal:** Postgres schema for every entity in the data model, with migrations and a client that works on both Postgres and PGlite.
-- **Requirements:** R2, R3, R4, R5, R10, R16, R19, R20, R21, R23; KTD4, KTD5, KTD11, KTD13.
+- **Requirements:** R2, R3, R4, R5, R6, R10, R15, R16, R19, R20, R21, R23, R24; KTD4, KTD5, KTD11, KTD13.
 - **Dependencies:** U1.
-- **Files:** `libs/db/src/schema/*.ts`, `libs/db/src/client.ts`, `libs/db/src/migrate.ts`, `libs/db/migrations/`, `libs/db/src/testing.ts`, `libs/db/src/schema.test.ts`.
+- **Files:** `libs/db/package.json`, `libs/db/drizzle.config.ts`, `libs/db/src/index.ts`, `libs/db/src/schema/*.ts`, `libs/db/src/client.ts`, `libs/db/src/migrate.ts`, `libs/db/migrations/`, `libs/db/src/testing.ts`, `libs/db/src/schema.test.ts`.
 - **Approach:**
-  1. One schema file per area; every owned table has `user_id` (FK to `users`) and an index leading with it; child-to-owned-row references (recipe line → ingredient, plan entry → recipe) are composite `(user_id, id)` foreign keys (KTD4).
-  2. Unique constraints: ingredient name per user, one week plan per `(user_id, week_key)`, one taste profile per user, share token globally.
-  3. `testing.ts` creates a fresh PGlite instance with migrations applied, for use by every test suite.
-  4. `migrate.ts` applies migrations under a Postgres advisory lock (KTD5).
+  1. Generate `libs/db` with `@nx/js:library` (workspace defaults already pass `linter: none` and vitest). Add `drizzle-orm`, `pg`, `@electric-sql/pglite` and `drizzle-kit` (dev).
+  2. One schema file per area (users, catalog, recipes, sharing, planning, shopping, history, profile); `users.id` is the WorkOS user ID as `text`; other IDs are `uuid` with `gen_random_uuid()` defaults.
+  3. Every owned table has `user_id` (FK to `users`, cascade on user delete) and an index leading with it. Every parent that a child references also carries `unique (user_id, id)`, and child references (recipe line → ingredient, plan entry → recipe, cook event → plan entry, ingredient children → ingredient, recipe children → recipe, week children → week plan) are composite `(user_id, <parent>_id) → (user_id, id)` foreign keys (KTD4).
+  4. Unique constraints: ingredient name per user (case-insensitive, on `lower(name)`), alias per ingredient, conversion unit per ingredient, one week plan per `(user_id, week_key)`, one taste profile per user, share token globally, one list item state per `(week_plan_id, ingredient_id)`, one snapshot per week plan.
+  5. Delete behavior: recipe children (lines, steps, tags, share links) cascade with the recipe. `plan_entries → recipes` uses `on delete no action` (checked at statement end, unlike `restrict`, so a user-delete cascade still succeeds) and recipes carry a nullable `archived_at`; deciding when to archive instead of delete is U4's domain rule, the schema only guarantees a planned recipe cannot be hard-deleted. Recipe lines → ingredients is also `no action`, so an ingredient in use cannot vanish. Cook events → plan entries is `no action` as well, so cooked history (R20) cannot be deleted with its entry; U5's set-entries updates existing entries in place rather than deleting and re-inserting cooked ones. Imported recipes record their origin in nullable `imported_from_user_id` / `imported_from_recipe_id` without a FK, since the source may later be deleted.
+  6. Amounts are `numeric` (entered amount, entered unit, canonical amount); week snapshots store their evaluation as `jsonb` (KTD13).
+  7. `client.ts` exports a factory over `node-postgres` and a PGlite variant with one shared `Database` type. `migrate.ts` takes `pg_advisory_lock` on a dedicated connection, runs the Drizzle migrator from `libs/db/migrations`, and releases the lock in `finally` (KTD5).
+  8. `testing.ts` creates a fresh in-memory PGlite instance, applies the committed migrations and returns the Drizzle client, for use by every test suite (KTD11).
+  9. `drizzle.config.ts` points `drizzle-kit` at the schema folder and `migrations/`; a `db-generate` target wraps `drizzle-kit generate`, and the first migration is generated from the schema, never hand-written.
 - **Test scenarios:**
-  - Migrations apply cleanly to an empty PGlite database.
-  - Inserting two ingredients with the same name for one user fails; the same name for two users succeeds.
+  - Migrations apply cleanly to an empty PGlite database, and running them a second time is a no-op.
+  - Inserting two ingredients with the same name (differing only in case) for one user fails; the same name for two users succeeds.
   - Creating a second week plan for the same user and week fails.
+  - Creating a second taste profile for one user fails; a share token reused across users fails.
   - Deleting a recipe removes its lines, steps, tags and share links.
-  - A recipe line for user A pointing at user B's ingredient violates the composite foreign key.
-  - Deleting a recipe referenced by a plan entry archives it instead, so cook history and statistics keep resolving it.
-- **Verification:** Schema tests pass on PGlite; `drizzle-kit generate` produces no diff after the committed migrations.
+  - A recipe line for user A pointing at user B's ingredient violates the composite foreign key; so does a plan entry for user A pointing at user B's recipe.
+  - Deleting a recipe referenced by a plan entry is refused by the foreign key; setting `archived_at` on it succeeds and the plan entry and its cook events still resolve the recipe.
+  - Deleting a plan entry that has a cook event is refused by the foreign key.
+  - Deleting a user cascades away all of their rows.
+- **Verification:** Schema tests pass on PGlite via `pnpm nx run db:test`; running `pnpm nx run db:db-generate` after the committed migrations reports no schema changes and leaves `git status` clean.
 
 ### U3. Units and catalog domain
 

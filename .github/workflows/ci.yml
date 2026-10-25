@@ -44,5 +44,10 @@ jobs:
       - name: Check formatting
         run: pnpm nx format:check --all
 
+      - name: Check migrations match the schema
+        run: |
+          pnpm nx run @simmery/db:db-generate
+          test -z "$(git status --porcelain -- libs/db/migrations)" || { git status --short -- libs/db/migrations; echo 'Schema changed without a committed migration; run pnpm nx run @simmery/db:db-generate.'; exit 1; }
+
       - name: Lint, typecheck, test, build affected
         run: pnpm nx affected -t lint typecheck test build
