@@ -28,7 +28,6 @@ function migratedDataDir(): Promise<File | Blob> {
   return migratedTemplate;
 }
 
-/** A fresh in-memory Postgres with the committed migrations applied (KTD11). */
 export async function createTestDatabase(): Promise<TestDatabase> {
   const client = new PGlite({ loadDataDir: await migratedDataDir() });
   return { db: createPgliteDatabase(client), close: () => client.close() };

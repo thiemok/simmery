@@ -6,7 +6,6 @@ import type { Pool } from 'pg';
 /** Resolves to `libs/db/migrations` from both `src/` and the built `dist/`. */
 export const migrationsFolder = fileURLToPath(new URL('../migrations', import.meta.url));
 
-// Arbitrary constant shared by every replica of the service.
 const MIGRATION_LOCK_ID = 7_355_213_901;
 
 /**

@@ -7,7 +7,6 @@ import * as schema from './schema/index.js';
 
 export type Schema = typeof schema;
 
-/** Driver-independent handle the domain layer works against. */
 export type Database = PgDatabase<PgQueryResultHKT, Schema>;
 
 export function createDatabase(pool: Pool): Database {
