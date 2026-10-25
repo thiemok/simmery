@@ -1,6 +1,5 @@
 import {
   ingredients,
-  planEntries,
   recipeLines,
   recipeSteps,
   recipeTags,
@@ -8,7 +7,18 @@ import {
   type Database,
 } from '@simmery/db';
 import { normalize, unitKey, type IngredientUnits } from '@simmery/units';
-import { and, asc, eq, exists, ilike, inArray, isNull, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import {
   escapeLike,
   insertIngredient,
@@ -61,7 +71,7 @@ export interface Recipe {
   title: string;
   servings: number;
   sourceUrl: string | null;
-  /** Set when a planned recipe was deleted; it stays readable for history. */
+  /** Set when the recipe was deleted; it stays readable and can be restored. */
   archivedAt: Date | null;
   lines: RecipeLine[];
   steps: string[];
@@ -330,11 +340,14 @@ async function tagsByRecipe(
   return tags;
 }
 
-/** Lists the caller's recipes that are not archived, filtered by part of the title and by tag. */
+/**
+ * Lists the caller's recipes filtered by part of the title and by tag; archived
+ * recipes are listed only, and exclusively, with `archived: true`.
+ */
 export async function searchRecipes(
   db: Database,
   userId: string,
-  { query, tag }: { query?: string; tag?: string } = {},
+  { query, tag, archived = false }: { query?: string; tag?: string; archived?: boolean } = {},
 ): Promise<RecipeSummary[]> {
   const term = query?.trim();
   const tagKey = tag?.trim().toLowerCase();
@@ -344,7 +357,7 @@ export async function searchRecipes(
     .where(
       and(
         eq(recipes.userId, userId),
-        isNull(recipes.archivedAt),
+        archived ? isNotNull(recipes.archivedAt) : isNull(recipes.archivedAt),
         term ? ilike(recipes.title, `%${escapeLike(term)}%`) : undefined,
         tagKey
           ? exists(
@@ -371,37 +384,33 @@ export async function searchRecipes(
   return rows.map((row) => ({ ...row, tags: tags.get(row.id) ?? [] }));
 }
 
-/**
- * Deletes a recipe, or archives it when a week plan references it so cook history
- * keeps resolving it.
- */
-export async function deleteRecipe(
+async function setArchivedAt(
   db: Database,
   userId: string,
   id: string,
-): Promise<{ archived: boolean }> {
+  archivedAt: SQL | null,
+): Promise<void> {
   if (!isUuid(id)) {
     throw new NotFoundError('recipe', id);
   }
-  return db.transaction(async (tx) => {
-    const owned = and(eq(recipes.userId, userId), eq(recipes.id, id));
-    const [recipe] = await tx.select({ id: recipes.id }).from(recipes).where(owned).for('update');
-    if (!recipe) {
-      throw new NotFoundError('recipe', id);
-    }
-    const [planned] = await tx
-      .select({ id: planEntries.id })
-      .from(planEntries)
-      .where(and(eq(planEntries.userId, userId), eq(planEntries.recipeId, id)))
-      .limit(1);
-    if (planned) {
-      await tx
-        .update(recipes)
-        .set({ archivedAt: sql`coalesce(${recipes.archivedAt}, now())` })
-        .where(owned);
-      return { archived: true };
-    }
-    await tx.delete(recipes).where(owned);
-    return { archived: false };
-  });
+  const [updated] = await db
+    .update(recipes)
+    .set({ archivedAt })
+    .where(and(eq(recipes.userId, userId), eq(recipes.id, id)))
+    .returning({ id: recipes.id });
+  if (!updated) {
+    throw new NotFoundError('recipe', id);
+  }
+}
+
+/**
+ * Archives the recipe instead of removing it, so it can be restored and cook history
+ * keeps resolving it.
+ */
+export function deleteRecipe(db: Database, userId: string, id: string): Promise<void> {
+  return setArchivedAt(db, userId, id, sql`coalesce(${recipes.archivedAt}, now())`);
+}
+
+export function restoreRecipe(db: Database, userId: string, id: string): Promise<void> {
+  return setArchivedAt(db, userId, id, null);
 }

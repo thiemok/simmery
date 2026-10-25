@@ -7,6 +7,7 @@ import {
   createRecipe,
   deleteRecipe,
   getRecipe,
+  restoreRecipe,
   searchRecipes,
   updateRecipe,
   type RecipeInput,
@@ -249,25 +250,53 @@ describe('searchRecipes', () => {
 });
 
 describe('deleteRecipe', () => {
-  it('removes a recipe that was never planned', async () => {
+  it('archives the recipe: hidden from search, listed as archived and still readable', async () => {
     const recipe = await createRecipe(db, 'user_a', flatbread());
 
-    expect(await deleteRecipe(db, 'user_a', recipe.id)).toEqual({ archived: false });
-    await expect(getRecipe(db, 'user_a', recipe.id)).rejects.toBeInstanceOf(NotFoundError);
+    await deleteRecipe(db, 'user_a', recipe.id);
+
+    expect(await searchRecipes(db, 'user_a')).toEqual([]);
+    expect((await searchRecipes(db, 'user_a', { archived: true })).map((r) => r.id)).toEqual([
+      recipe.id,
+    ]);
+    expect((await getRecipe(db, 'user_a', recipe.id)).archivedAt).toBeInstanceOf(Date);
   });
 
-  it('archives a planned recipe, hiding it from search but keeping it readable', async () => {
+  it('archives a planned recipe the same way', async () => {
     const recipe = await createRecipe(db, 'user_a', flatbread());
     await planRecipe('user_a', recipe.id);
 
-    expect(await deleteRecipe(db, 'user_a', recipe.id)).toEqual({ archived: true });
-    expect(await searchRecipes(db, 'user_a')).toEqual([]);
+    await deleteRecipe(db, 'user_a', recipe.id);
+
     expect((await getRecipe(db, 'user_a', recipe.id)).archivedAt).toBeInstanceOf(Date);
+  });
+
+  it('keeps the first archive time when deleted again', async () => {
+    const recipe = await createRecipe(db, 'user_a', flatbread());
+    await deleteRecipe(db, 'user_a', recipe.id);
+    const { archivedAt } = await getRecipe(db, 'user_a', recipe.id);
+
+    await deleteRecipe(db, 'user_a', recipe.id);
+
+    expect((await getRecipe(db, 'user_a', recipe.id)).archivedAt).toEqual(archivedAt);
+  });
+});
+
+describe('restoreRecipe', () => {
+  it('brings an archived recipe back into search', async () => {
+    const recipe = await createRecipe(db, 'user_a', flatbread());
+    await deleteRecipe(db, 'user_a', recipe.id);
+
+    await restoreRecipe(db, 'user_a', recipe.id);
+
+    expect((await searchRecipes(db, 'user_a')).map((r) => r.id)).toEqual([recipe.id]);
+    expect(await searchRecipes(db, 'user_a', { archived: true })).toEqual([]);
+    expect((await getRecipe(db, 'user_a', recipe.id)).archivedAt).toBeNull();
   });
 });
 
 describe('cross-user isolation', () => {
-  it('treats another user’s recipe as not found for read, edit and delete', async () => {
+  it('treats another user’s recipe as not found for read, edit, delete and restore', async () => {
     const recipe = await createRecipe(db, 'user_a', flatbread());
 
     await expect(getRecipe(db, 'user_b', recipe.id)).rejects.toBeInstanceOf(NotFoundError);
@@ -275,7 +304,9 @@ describe('cross-user isolation', () => {
       updateRecipe(db, 'user_b', recipe.id, flatbread({ lines: [] })),
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(deleteRecipe(db, 'user_b', recipe.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(restoreRecipe(db, 'user_b', recipe.id)).rejects.toBeInstanceOf(NotFoundError);
     expect(await searchRecipes(db, 'user_b')).toEqual([]);
+    expect(await searchRecipes(db, 'user_b', { archived: true })).toEqual([]);
     expect((await getRecipe(db, 'user_a', recipe.id)).title).toBe('Garlic flatbread');
   });
 

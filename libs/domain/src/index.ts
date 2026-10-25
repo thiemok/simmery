@@ -11,6 +11,7 @@ export {
   createRecipe,
   deleteRecipe,
   getRecipe,
+  restoreRecipe,
   searchRecipes,
   updateRecipe,
   type Recipe,
