@@ -6,7 +6,7 @@ import {
   unitConversions,
   type Database,
 } from '@simmery/db';
-import { unitKey, type UnitConversion } from '@simmery/units';
+import { normalize, unitKey, type IngredientUnits, type UnitConversion } from '@simmery/units';
 import { and, asc, eq, exists, ilike, inArray, or, sql } from 'drizzle-orm';
 import {
   ConflictError,
@@ -295,19 +295,20 @@ export async function updateIngredient(
     if (!current) {
       throw new NotFoundError('ingredient', id);
     }
-    if (current.canonicalUnit !== ingredient.canonicalUnit) {
-      // Stored canonical amounts on recipe lines would silently change meaning.
-      const [used] = await tx
-        .select({ id: recipeLines.id })
-        .from(recipeLines)
-        .where(and(eq(recipeLines.userId, userId), eq(recipeLines.ingredientId, id)))
-        .limit(1);
-      if (used) {
-        throw new ConflictError(
-          'canonical_unit_in_use',
-          'the canonical unit cannot change while recipes use this ingredient',
-        );
-      }
+    const lines = await tx
+      .select({
+        id: recipeLines.id,
+        amount: recipeLines.amount,
+        unit: recipeLines.unit,
+        canonicalAmount: recipeLines.canonicalAmount,
+      })
+      .from(recipeLines)
+      .where(and(eq(recipeLines.userId, userId), eq(recipeLines.ingredientId, id)));
+    if (lines.length > 0 && current.canonicalUnit !== ingredient.canonicalUnit) {
+      throw new ConflictError(
+        'canonical_unit_in_use',
+        'the canonical unit cannot change while recipes use this ingredient',
+      );
     }
 
     try {
@@ -332,7 +333,38 @@ export async function updateIngredient(
     await children(packSizes);
     await children(unitConversions);
     await writeChildren(tx, userId, id, ingredient);
+    await renormalizeLines(tx, userId, lines, ingredient);
   });
 
   return getIngredient(db, userId, id);
+}
+
+/**
+ * Brings stored canonical amounts in line with changed conversions, and refuses the
+ * change when a recipe line's unit would no longer normalize.
+ */
+async function renormalizeLines(
+  db: Database,
+  userId: string,
+  lines: readonly { id: string; amount: number; unit: string; canonicalAmount: number }[],
+  units: IngredientUnits,
+): Promise<void> {
+  const unresolved = new Set<string>();
+  for (const line of lines) {
+    const result = normalize(line.amount, line.unit, units);
+    if (!result.resolved) {
+      unresolved.add(result.unit);
+    } else if (result.amount !== line.canonicalAmount) {
+      await db
+        .update(recipeLines)
+        .set({ canonicalAmount: result.amount })
+        .where(and(eq(recipeLines.userId, userId), eq(recipeLines.id, line.id)));
+    }
+  }
+  if (unresolved.size > 0) {
+    throw new ConflictError(
+      'conversion_in_use',
+      `recipes use ${[...unresolved].join(', ')}, which would no longer convert`,
+    );
+  }
 }

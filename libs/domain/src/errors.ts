@@ -22,7 +22,7 @@ export class ValidationError extends Error {
   }
 }
 
-export type ConflictReason = 'duplicate_name' | 'canonical_unit_in_use';
+export type ConflictReason = 'duplicate_name' | 'canonical_unit_in_use' | 'conversion_in_use';
 
 export class ConflictError extends Error {
   constructor(

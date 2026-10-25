@@ -187,6 +187,41 @@ describe('updateIngredient', () => {
     ).resolves.toMatchObject({ canonicalUnit: 'kg' });
   });
 
+  it('recomputes stored recipe amounts when a conversion changes, and refuses removing a used one', async () => {
+    const withCup = { ...flour, conversions: [{ unit: 'cup', factor: 12 }] };
+    const ingredient = await createIngredient(db, 'user_a', withCup);
+    const [recipe] = await db
+      .insert(recipes)
+      .values({ userId: 'user_a', title: 'Pancakes', servings: 2 })
+      .returning();
+    await db.insert(recipeLines).values({
+      userId: 'user_a',
+      recipeId: recipe.id,
+      position: 0,
+      ingredientId: ingredient.id,
+      amount: 2,
+      unit: 'cup',
+      canonicalAmount: 24,
+    });
+    const storedAmount = async () =>
+      (await db.select({ canonicalAmount: recipeLines.canonicalAmount }).from(recipeLines))[0]
+        .canonicalAmount;
+
+    await updateIngredient(db, 'user_a', ingredient.id, {
+      ...flour,
+      conversions: [{ unit: 'cup', factor: 120 }],
+    });
+    expect(await storedAmount()).toBe(240);
+
+    await expect(updateIngredient(db, 'user_a', ingredient.id, flour)).rejects.toSatisfy(
+      (error) => error instanceof ConflictError && error.reason === 'conversion_in_use',
+    );
+    expect(await storedAmount()).toBe(240);
+    expect((await getIngredient(db, 'user_a', ingredient.id)).conversions).toEqual([
+      { unit: 'cup', factor: 120 },
+    ]);
+  });
+
   it('refuses renaming onto another ingredient’s name', async () => {
     await createIngredient(db, 'user_a', flour);
     const sugar = await createIngredient(db, 'user_a', { name: 'Sugar', canonicalUnit: 'g' });
