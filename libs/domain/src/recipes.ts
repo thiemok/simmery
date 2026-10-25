@@ -99,23 +99,13 @@ function prepareSourceUrl(raw: string | null | undefined, issues: FieldIssue[]):
   if (!value) {
     return null;
   }
-  // Recipes come from untrusted pages and render on the public share view.
-  let url: URL | undefined;
-  try {
-    url = new URL(value);
-  } catch {
-    url = undefined;
-  }
-  if (url?.protocol !== 'http:' && url?.protocol !== 'https:') {
+  const protocol = URL.canParse(value) ? new URL(value).protocol : undefined;
+  if (protocol !== 'http:' && protocol !== 'https:') {
     issues.push({ field: 'sourceUrl', message: 'must be an absolute http or https URL' });
   }
   return value;
 }
 
-/**
- * Validates the input, checks every referenced ingredient belongs to the caller and
- * normalizes each line, all before anything is written.
- */
 async function prepareRecipe(
   db: Database,
   userId: string,
