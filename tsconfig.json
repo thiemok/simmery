@@ -5,6 +5,9 @@
   "references": [
     {
       "path": "./libs/units"
+    },
+    {
+      "path": "./libs/db"
     }
   ]
 }
