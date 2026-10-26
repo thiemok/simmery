@@ -1,7 +1,7 @@
 /** A missing row, or one owned by another user: both look the same to the caller (KTD4). */
 export class NotFoundError extends Error {
   constructor(
-    readonly entity: 'ingredient' | 'recipe',
+    readonly entity: 'ingredient' | 'recipe' | 'plan_entry',
     readonly id: string,
   ) {
     super(`${entity} ${id} not found`);
@@ -22,7 +22,11 @@ export class ValidationError extends Error {
   }
 }
 
-export type ConflictReason = 'duplicate_name' | 'canonical_unit_in_use' | 'conversion_in_use';
+export type ConflictReason =
+  | 'duplicate_name'
+  | 'canonical_unit_in_use'
+  | 'conversion_in_use'
+  | 'entry_cooked';
 
 export class ConflictError extends Error {
   constructor(

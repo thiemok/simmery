@@ -20,3 +20,29 @@ export {
   type RecipeLineInput,
   type RecipeSummary,
 } from './recipes.js';
+export {
+  evaluateCandidateWeek,
+  evaluateWeek,
+  type EvaluationEntry,
+  type EvaluationIngredient,
+  type EvaluationRecipe,
+  type WeekEvaluation,
+  type WeekIngredientLine,
+} from './evaluate-week.js';
+export {
+  getWeek,
+  setWeekEntries,
+  snapshotEndedWeeks,
+  weekStart,
+  type Week,
+  type WeekEntry,
+  type WeekEntryInput,
+} from './planning.js';
+export {
+  applyListOps,
+  getShoppingList,
+  type ListOp,
+  type ShoppingExtra,
+  type ShoppingItem,
+  type ShoppingList,
+} from './shopping.js';
