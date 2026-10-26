@@ -102,7 +102,7 @@ export function prepareIngredient(
   };
 }
 
-function escapeLike(term: string): string {
+export function escapeLike(term: string): string {
   return term.replace(/[\\%_]/g, '\\$&');
 }
 

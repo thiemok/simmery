@@ -34,6 +34,22 @@ export class ConflictError extends Error {
   }
 }
 
+export interface UnresolvedLine {
+  /** Position of the line in the submitted recipe. */
+  index: number;
+  unit: string;
+}
+
+/** A recipe line's unit could not be normalized into its ingredient's canonical unit (R6). */
+export class UnresolvedUnitsError extends Error {
+  constructor(readonly lines: readonly UnresolvedLine[]) {
+    super(
+      `unresolved units on ${lines.map((line) => `line ${line.index} (${line.unit})`).join(', ')}`,
+    );
+    this.name = 'UnresolvedUnitsError';
+  }
+}
+
 export function throwIfIssues(issues: readonly FieldIssue[]): void {
   if (issues.length > 0) {
     throw new ValidationError(issues);

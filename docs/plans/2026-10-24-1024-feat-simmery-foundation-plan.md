@@ -326,7 +326,7 @@ docker-compose.yml   local Postgres
 - Week boundaries use ISO weeks (Monday start) in the user's browser time zone; the week key is `YYYY-Www`.
 - A share link is an unguessable random token in the URL; a revoked token returns a "no longer shared" page.
 - The built-in unit registry is metric (`mg`, `g`, `kg`, `ml`, `cl`, `dl`, `l`), kitchen spoons (`tsp` 5 ml, `tbsp` 15 ml) and count-like units (`piece`, `clove`, `pinch`, `bunch`, `slice`, `sprig`, `can`); `cup`, `fl oz`, `oz` and `lb` are left out as ambiguous and enter only as per-ingredient conversions (U3).
-- Deleting a recipe that was ever planned archives it (hidden from the collection and from planning) rather than removing it, so history stays intact for R20.
+- Deleting a recipe always archives it (hidden from the collection and from planning) rather than removing it, so the user can restore it and history stays intact for R20. A later cleanup job removes archived recipes after a retention period (THI-62).
 
 ### Risks & Dependencies
 
