@@ -507,27 +507,46 @@ U1 → U2 → U3 → U12 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U1
 ### U6. Cooking, statistics, taste profile and sharing domain
 
 - **Goal:** The remaining domain areas: cook events, ratings, statistics, taste profile, share links and import.
-- **Requirements:** R18, R19, R20, R21, R22, R23, R24, F4, AE5; KTD13.
+- **Requirements:** R2, R6, R18, R19, R20, R21, R22, R23, R24, F2, F4, AE5; KTD2, KTD4, KTD13.
 - **Dependencies:** U5.
-- **Files:** `libs/domain/src/cooking.ts`, `libs/domain/src/stats.ts`, `libs/domain/src/profile.ts`, `libs/domain/src/sharing.ts`, matching `*.test.ts` files.
+- **Files:** `libs/domain/src/cooking.ts`, `libs/domain/src/stats.ts`, `libs/domain/src/profile.ts`, `libs/domain/src/sharing.ts`, `libs/domain/src/recipes.ts`, `libs/domain/src/errors.ts`, `libs/domain/src/index.ts`, `libs/domain/src/cooking.test.ts`, `libs/domain/src/stats.test.ts`, `libs/domain/src/profile.test.ts`, `libs/domain/src/sharing.test.ts`, `libs/domain/src/recipes.test.ts`. No schema change: `cook_events`, `week_snapshots`, `taste_profiles` and `share_links` exist since U2.
 - **Approach:**
-  1. `cooking`: scaled recipe view for a plan entry; mark cooked (timestamp) with optional 1–5 rating.
-  2. `stats`: cook counts and last-cooked per recipe, "not cooked in N weeks", rating history, tag spread per week, top purchased ingredients, leftover, overlap and most-bought trends per week read from week snapshots (KTD13); cook history and ratings are aggregated live.
-  3. `profile`: get/replace markdown text; empty profile reads as empty string.
-  4. `sharing`: create link (random 32-byte token), revoke, resolve token to a read-only recipe view without auth; import takes a mapping per source line (existing ingredient ID or new ingredient) and runs the same unit normalization as save, storing `imported_from` (sharer display name + source recipe).
+  1. **Scaling.** A pure `scaleRecipe(recipe, servings)` returns the recipe with every line's `amount` and `canonicalAmount` multiplied by servings ÷ recipe servings and rounded with `roundAmount`; servings must be a positive whole number. The web app can use it for any recipe view; the cook view uses it for an entry.
+  2. **`getCookView(planEntryId)`** loads the caller's entry (week key, servings, day), the recipe through `getRecipe` scaled to the entry's servings, and the entry's cook events (ID, cooked at, rating) oldest first. An archived recipe still has a cook view, because existing entries keep their recipe (U5).
+  3. **`markCooked(planEntryId, { rating? }, now)`** inserts a cook event at `now` and returns it. `rating` is a whole number 1–5 or absent; anything else is a field error. An entry may be cooked more than once; each call is a new event. **`rateCookEvent(cookEventId, rating | null)`** sets or clears a rating later, so the agent can ask "how was it?" the next day (F1, F2). **`deleteCookEvent(cookEventId)`** undoes a mistaken mark; without it a stray tap would block removing the entry for good (`entry_cooked`, U5).
+  4. **`getStatistics(now)`** first calls `snapshotEndedWeeks(db, userId, now)` (KTD13), then returns:
+     - `recipes`: every non-archived recipe, plus archived recipes that have cook events, with cook count, last cooked at (or null) and average rating (or null). Ordered by last cooked, newest first, never-cooked last. Aggregated live from `cook_events` joined through `plan_entries`.
+     - `notCookedRecently`: the non-archived recipes from `recipes` never cooked or last cooked more than 4 weeks before `now`, oldest first.
+     - `cooks`: every cook event (event ID, entry ID, recipe ID and title, cooked at, rating or null), oldest first; ratings over time are the events with a rating.
+     - `weeks`: one row per week of the caller that has entries and starts within the last 12 ISO weeks up to the current week (future weeks excluded), ordered by week key. Each row has the week key, `frozen` and the evaluation (lines with totals and leftovers, overlap, tag counts). A week with a snapshot reads it (`frozen: true`); a week without one (the current week before its first check-off) is evaluated live through `evaluateSavedWeek`.
+     - `mostBought`: across those week rows, per ingredient and unit, the number of weeks it appears in and the summed total, top 10 by week count then total. Names and units come from the rows, so a renamed ingredient keeps its snapshot name for frozen weeks.
+     A user with no recipes, entries or events gets empty arrays. The 4- and 12-week spans are module constants; no caller needs to tune them yet.
+  5. **Taste profile.** `getTasteProfile()` returns `{ body, updatedAt }`, with `''` and `null` when the user has no row. `updateTasteProfile(body)` upserts the whole text and returns the result; the body is stored as given, since markdown whitespace can matter.
+  6. **Share links.** `createShareLink(recipeId)` returns the recipe's active link if one exists, otherwise creates one with a token of 32 random bytes (`crypto.randomBytes`, base64url); an archived recipe is a field error. `listShareLinks(recipeId)` returns the active links (ID, token, created at). `revokeShareLink(linkId)` sets `revoked_at` once (repeat calls keep the first time). Recipe and link IDs are the caller's or not found (KTD4).
+  7. **`resolveShareToken(token)`** takes no user. It finds the link by token and reads the owner's recipe through `getRecipe` with the link's `user_id`, returning a `SharedRecipe` view: title, servings, source URL, lines (ingredient name, amount, unit, note, in order; no IDs), steps and tags. An unknown token is `NotFoundError('share_link')`; a revoked link throws a new `NoLongerSharedError` (AE5), which U7 maps to the "no longer shared" page.
+  8. **`importSharedRecipe(token, { lines })`** resolves the token as above, then builds a `RecipeInput` from the shared recipe: same title, servings, steps, tags and source URL, and one line per source line from the mapping at the same index. A mapping is `{ ingredientId }` or `{ newIngredient }` (as in `RecipeLineInput`), with optional `amount` and `unit` overriding the source line's, so the importer can resolve a unit flag by converting the amount; adding a conversion goes through the catalog or the new ingredient's conversions. A mapping list whose length differs from the source lines is a field error. The save runs through the same path as `createRecipe` (validation, ingredient ownership, `normalize`), so a foreign ingredient ID is not found and an unresolved unit raises `UnresolvedUnitsError` with the source line index (R6). The copy is a new recipe of the importer with `imported_from_user_id` and `imported_from_recipe_id` set; it shares no rows with the original.
+  9. **Recipe changes.** Extract the insert part of `createRecipe` into an internal `insertRecipe(db, userId, input, importedFrom?)` that `importSharedRecipe` reuses. `Recipe` gains `imported: boolean`; `updateRecipe` leaves provenance unchanged. This replaces the earlier "sharer display name" wording: `users` holds only the WorkOS ID and email, so the copy records the sharer's user ID and recipe in its row (R24), but the read model never returns them, and no layer looks up another user's email for display (R2). Showing a sharer name needs a name the sharer chose and is deferred. `deleteRecipe` also revokes the recipe's active share links in the same transaction, so deleting ends sharing and a later `restoreRecipe` does not bring old links back.
+  10. Extend `NotFoundError` entities with `cook_event` and `share_link`, add `NoLongerSharedError` to `errors.ts`, and export the new operations and types from `index.ts`. Every operation that takes a caller follows the existing `(db, userId, …)` signature and checks IDs with `isUuid` before querying.
+- **Patterns to follow:** `libs/domain/src/planning.ts` for `now` parameters, owned loading and conflict handling; `libs/domain/src/recipes.ts` for `throwIfIssues` and the transactional save; `libs/domain/src/planning.test.ts` for PGlite setup with two users and inserting cook events and snapshots directly.
 - **Test scenarios:**
-  - Marking an entry cooked with rating 4 shows up in cook history and rating history.
+  - `scaleRecipe` of a 2-serving recipe to 3 servings scales both amount and canonical amount by 1.5, rounded; servings 0 is a field error.
+  - The cook view of an entry planned for 4 servings of a 2-serving recipe shows doubled amounts and the steps in order; an archived recipe's entry still has a cook view.
+  - Covers R19. Marking an entry cooked with rating 4 shows up in `cooks` with its rating and as that recipe's cook count and average; marking without a rating adds a cook but no rating; rating 0, 6 or 2.5 is a field error.
+  - `rateCookEvent` later sets and then clears a rating; `deleteCookEvent` removes the event, after which `setWeekEntries` can drop the entry again.
   - Stats for a user with no events return empty collections, not errors.
+  - "Not cooked recently" includes a recipe last cooked 6 weeks ago and a never-cooked recipe, and excludes one cooked last week and archived recipes.
   - Editing a recipe or an ingredient's pack sizes after its week was snapshotted leaves that week's leftover and most-bought figures unchanged.
-  - A week with no snapshot yet (still current) shows live figures.
-  - "Not cooked in a while" includes a recipe last cooked 6 weeks ago and excludes one cooked last week.
-  - Updating the taste profile replaces the text; a second user's profile is untouched.
-  - Resolving a valid token returns the recipe without user context.
-  - Covers AE5. After revoke, resolving the token returns "no longer shared"; an already imported copy still exists unchanged.
-  - Import mapping a line to an ingredient with a different canonical unit and no conversion returns the unit flag for that line (per R6).
-  - Import into user B creates the recipe under B with `imported_from` set; edits to A's original do not change B's copy.
-  - Import by user B with a mapping that points at user A's ingredient ID fails as not found.
-- **Verification:** All domain tests pass; every domain module has a cross-user isolation test.
+  - A week with no snapshot yet (still current) shows live figures with `frozen: false`; an ended week never opened since gets snapshotted by `getStatistics` and shows `frozen: true`; a future week and a week outside the window are left out.
+  - `mostBought` ranks an ingredient bought in three weeks above one bought in a single larger week.
+  - Updating the taste profile replaces the text; reading a profile that was never written returns `''`; a second user's profile is untouched.
+  - Creating a link twice returns the same active link; after revoking, a new create returns a new token; sharing an archived recipe is a field error.
+  - Resolving a valid token returns the recipe without user context and with no ingredient or user IDs; an unknown or malformed token is not found.
+  - Covers AE5. After revoke, resolving the token throws `NoLongerSharedError`; an already imported copy still exists unchanged. Deleting the shared recipe has the same effect, and the token stays no longer shared after `restoreRecipe`.
+  - Covers R6. Import mapping a line to an ingredient with a different canonical unit and no conversion raises `UnresolvedUnitsError` naming that source line index; the same import with an `amount`/`unit` override in the canonical unit succeeds.
+  - Import into user B creates the recipe under B with `imported: true`, the provenance columns set and no user ID of A in the returned recipe, and B's ingredients (existing and new); edits to A's original do not change B's copy; a mapping list of the wrong length is a field error.
+  - Import by user B with a mapping that points at user A's ingredient ID fails as not found and creates nothing.
+  - Cross-user: user B cannot read A's cook view, mark or rate A's entries or events, read A's statistics or profile, list, create or revoke links on A's recipe, delete A's cook event by ID or revoke A's link by ID; each fails as not found or returns only B's data, and A's rows are unchanged.
+- **Verification:** All domain tests pass on PGlite; every new domain module has a cross-user isolation test; `domain` lint, typecheck, test and build pass.
 
 ### U7. Server, auth and JSON API
 
