@@ -1,0 +1,77 @@
+.mark {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.sun,
+.heroSun {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--g-sunrise);
+  mask: linear-gradient(
+    180deg,
+    #000 0 46%,
+    transparent 46% 52%,
+    #000 52% 64%,
+    transparent 64% 70%,
+    #000 70% 79%,
+    transparent 79% 86%,
+    #000 86% 92%,
+    transparent 92%
+  );
+}
+
+.sun {
+  bottom: 2px;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 999px 999px 0 0;
+}
+
+.horizon {
+  position: absolute;
+  left: -15%;
+  right: -15%;
+  bottom: 1px;
+  height: 1.5px;
+  background: var(--c-ink);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--c-ink);
+  text-decoration: none;
+}
+
+.hero {
+  position: relative;
+  height: 168px;
+  overflow: hidden;
+  background: var(--g-sky);
+  border-radius: var(--r-md);
+}
+
+.heroSun {
+  bottom: 30px;
+  width: 200px;
+  height: 100px;
+  border-radius: 100px 100px 0 0;
+}
+
+.heroGround {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  background: var(--c-ground);
+  border-top: 1px solid var(--c-sun-2);
+}

@@ -12,6 +12,12 @@
       "types": "./dist/app.d.ts",
       "import": "./dist/app.js",
       "default": "./dist/app.js"
+    },
+    "./testing": {
+      "simmery": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js",
+      "default": "./dist/testing.js"
     }
   },
   "dependencies": {

@@ -1,0 +1,69 @@
+.stepper {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+.dots {
+  display: flex;
+  gap: 5px;
+}
+
+.dots i {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--c-line);
+}
+
+.dots i[data-state='done'] {
+  background: var(--c-ink-soft);
+}
+
+.dots i[data-state='current'] {
+  background: var(--c-accent);
+}
+
+.stepLabel {
+  font-family: var(--f-display);
+  font-weight: 600;
+  color: var(--c-accent);
+}
+
+/* Readable from about 1 m at the stove (visual-identity R8). */
+.stepText {
+  font-size: 29px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.stepNav {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: var(--s-2);
+}
+
+.stepNav :global(.btn) {
+  min-height: 56px;
+  font-size: 17px;
+}
+
+.listText {
+  font-size: 18px;
+}
+
+.event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.cooked {
+  color: var(--c-checked);
+  font-weight: 700;
+}

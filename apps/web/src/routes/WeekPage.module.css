@@ -1,0 +1,114 @@
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.head > div {
+  flex: 1;
+  text-align: center;
+}
+
+.layout {
+  display: grid;
+  gap: var(--s-5);
+}
+
+.meals {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.meal {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+.number {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 52px;
+  border-radius: 8px;
+  background: var(--c-ground);
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.mealBody {
+  flex: 1;
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.mealBody b {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.mealControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+}
+
+.day select {
+  width: auto;
+}
+
+.addMeal {
+  min-height: var(--tap);
+  padding: var(--s-3);
+  border: 2px dashed var(--c-line);
+  border-radius: var(--r-md);
+  background: none;
+  font-weight: 700;
+  color: var(--c-ink-soft);
+  cursor: pointer;
+}
+
+.panel {
+  display: grid;
+  gap: var(--s-4);
+  align-content: start;
+}
+
+.summary {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.summary div {
+  flex: 1;
+  padding: var(--s-2) var(--s-3);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+.summary b {
+  display: block;
+  font-family: var(--f-display);
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.summary small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-ink-soft);
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: 1.4fr 1fr;
+  }
+}

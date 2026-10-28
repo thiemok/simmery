@@ -1,0 +1,33 @@
+.loading {
+  padding: var(--s-5) 0;
+  color: var(--c-ink-soft);
+  font-weight: 600;
+}
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-3);
+  padding: var(--s-5) var(--s-4);
+  border: 2px dashed var(--c-line);
+  border-radius: var(--r-md);
+  color: var(--c-ink-soft);
+}
+
+.emptyTitle {
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.error,
+.notice {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-danger);
+  background: var(--c-surface);
+  color: var(--c-danger);
+  font-weight: 600;
+}
