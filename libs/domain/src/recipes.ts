@@ -320,7 +320,7 @@ export async function getRecipe(db: Database, userId: string, id: string): Promi
   };
 }
 
-async function tagsByRecipe(
+export async function tagsByRecipe(
   db: Database,
   userId: string,
   recipeIds: readonly string[],

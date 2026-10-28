@@ -323,10 +323,10 @@ docker-compose.yml   local Postgres
 
 - WorkOS free tier covers ~30 users and invite-only sign-up without a paid plan.
 - claude.ai and Claude Code accept AuthKit as an MCP authorization server via Client ID Metadata Documents or DCR.
-- Week boundaries use ISO weeks (Monday start) in the user's browser time zone; the week key is `YYYY-Www`.
+- Week boundaries use ISO weeks (Monday start) in the user's browser time zone; the week key is `YYYY-Www`. The domain stores no time zone, so it decides that a week has ended (for its snapshot) in UTC; for zones far from UTC a snapshot can land up to about half a day early or late, which is acceptable for trend statistics (U5).
 - A share link is an unguessable random token in the URL; a revoked token returns a "no longer shared" page.
 - The built-in unit registry is metric (`mg`, `g`, `kg`, `ml`, `cl`, `dl`, `l`), kitchen spoons (`tsp` 5 ml, `tbsp` 15 ml) and count-like units (`piece`, `clove`, `pinch`, `bunch`, `slice`, `sprig`, `can`); `cup`, `fl oz`, `oz` and `lb` are left out as ambiguous and enter only as per-ingredient conversions (U3).
-- Deleting a recipe always archives it (hidden from the collection and from planning) rather than removing it, so the user can restore it and history stays intact for R20. A later cleanup job removes archived recipes after a retention period (THI-62).
+- Deleting a recipe always archives it (hidden from the collection and from new planning; existing plan entries keep it until removed) rather than removing it, so the user can restore it and history stays intact for R20. A later cleanup job removes archived recipes after a retention period (THI-62).
 
 ### Risks & Dependencies
 
@@ -471,26 +471,38 @@ U1 → U2 → U3 → U12 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U1
 ### U5. Planning and shopping domain
 
 - **Goal:** Weekly plans, week evaluation and the aggregated shopping list.
-- **Requirements:** R10, R11, R12, R13, R14, R16, F1, AE2, AE3; KTD7, KTD8.
+- **Requirements:** R2, R10, R11, R12, R13, R14, R16, F1, AE2, AE3; KTD2, KTD4, KTD7, KTD8, KTD13.
 - **Dependencies:** U4.
-- **Files:** `libs/domain/src/planning.ts`, `libs/domain/src/evaluate-week.ts`, `libs/domain/src/shopping.ts`, `libs/domain/src/planning.test.ts`, `libs/domain/src/shopping.test.ts`.
+- **Files:** `libs/domain/src/planning.ts`, `libs/domain/src/evaluate-week.ts`, `libs/domain/src/shopping.ts`, `libs/domain/src/errors.ts`, `libs/domain/src/index.ts`, `libs/domain/src/evaluate-week.test.ts`, `libs/domain/src/planning.test.ts`, `libs/domain/src/shopping.test.ts`.
 - **Approach:**
-  1. `planning`: get or create the week by `week_key`; set entries (recipe, servings, optional day).
-  2. `evaluateWeek(entries)`: pure function over recipes + catalog returning per-ingredient totals, overlap (ingredients in ≥2 entries), leftover estimates via pack fit, and tag counts. Used by the planning view, `get_week` and `evaluate_week` without saving.
-  3. `shopping`: list = evaluateWeek totals + extras + checked state. `applyListOps(ops)` applies check-off/extra operations last-write-wins by client timestamp (KTD8). The first applied op of a week, or the first read after the week ends, writes that week's snapshot if none exists (KTD13).
+  1. **Week keys.** A key is `YYYY-Www` with a week that exists in that ISO year (W53 only in 53-week years); anything else is a field error. The week starts Monday 00:00 UTC and has ended from the following Monday 00:00 UTC. The domain has no user time zone, so UTC stands in for the browser's zone (Assumptions); callers pass `now` so tests control the clock.
+  2. **`getWeek(weekKey)`** gets or creates the caller's week (insert, ignore the unique conflict, select) and returns its entries (entry ID, recipe ID and title, servings, day) plus the evaluation of the saved entries.
+  3. **`setWeekEntries(weekKey, entries)`** replaces the week's entry set in one transaction. An input entry with an `id` updates that entry's servings and day in place and keeps its recipe (a different recipe ID is a field error); one without an `id` is inserted. Saved entries missing from the input are deleted, except an entry with cook events, which refuses the whole save with `ConflictError('entry_cooked')` so cooked history (R20) is never lost; the cook-event FK is `no action` (U2). Servings must be a positive whole number and day 1–7 or absent. Every recipe ID must be the caller's (KTD4, not found otherwise), and a new entry may not use an archived recipe (field error); existing entries of a since-archived recipe stay.
+  4. **`evaluateWeek(entries, recipes, ingredients)`** in `evaluate-week.ts` is pure: each entry contributes every line's canonical amount × planned servings ÷ recipe servings. It returns one line per ingredient (ingredient ID, name, canonical unit, total rounded via `roundAmount`, number of entries using it, leftover from `packFit` or `null` without pack sizes), the overlap (lines used by two or more entries), and tag counts (entries per tag). Lines sort by ingredient name. A shared loader reads the caller's recipes and their ingredients' pack sizes and calls it, writing nothing; any recipe ID that is not the caller's is not found before any ingredient data is read. `evaluateCandidateWeek(db, userId, entries)` uses it for unsaved candidates and rejects archived recipes with the same field error as a new entry; `getWeek`, the shopping list and snapshots use it for saved entries, archived recipes included, so web and MCP share one evaluation (KTD2).
+  5. **`getShoppingList(weekKey)`** returns the evaluation's ingredient lines with their totals and checked state (no leftovers or packs, AE2), plus the extras in creation order.
+  6. **`applyListOps(weekKey, ops)`** takes operations, each with a client timestamp: `check` (ingredient ID, checked), `addExtra` (client-generated UUID, text), `renameExtra`, `checkExtra`, `removeExtra`. Ops apply in one transaction in client-timestamp order. Client timestamps later than the server's `now` are capped at `now`, so one device with a fast clock cannot lock an item. Each item keeps the timestamp of the write that set it, and an op applies only when strictly newer, so arrival order does not matter (KTD8); this is a conditional upsert on `list_item_states` and `list_extras`. A `check` for an ingredient not on the current list, and an extra op for an ID not in this week, are ignored; an extra ID already used elsewhere is ignored rather than overwritten. `addExtra` on an existing ID is an idempotent upsert so a replay is harmless. Extras belong to the week, not to entries, so they survive plan changes. A removed extra is deleted outright; an add for it replayed out of order from a second device would bring it back, which is accepted because an extra can only be removed after its add has synced. It returns the resulting list.
+  7. **Snapshots (KTD13).** A snapshot is the week's evaluation inserted into `week_snapshots` with `on conflict do nothing`, so exactly one exists and is never overwritten. The first `applyListOps` call that applies a `check` or `checkExtra` writes it. An exported `snapshotEndedWeeks(db, userId, now)` writes it for every one of the caller's ended weeks that has entries and no snapshot; `getWeek` and `getShoppingList` call it, and U6 statistics call it before reading trends, so a week nobody reopens is still frozen. A week without entries is never snapshotted, so opening an empty past week cannot freeze an empty evaluation.
+  8. Extend `NotFoundError` entities with `plan_entry` and `ConflictReason` with `entry_cooked`; export the new operations and types from `index.ts`.
+- **Patterns to follow:** `libs/domain/src/recipes.ts` for input preparation, `throwIfIssues`, `isUuid` guards and transactional replace; `loadIngredients` in `catalog.ts` for owned loading; `libs/domain/src/recipes.test.ts` for PGlite setup with two users.
 - **Test scenarios:**
-  - Recipe A (serves 2, 1 onion) planned for 4 servings plus recipe B (serves 2, 2 onions) planned for 2 produce one onion line of 4 pieces.
-  - A recipe with servings 2 planned for 4 doubles all amounts.
+  - Recipe A (serves 2, 1 onion) planned for 4 servings plus recipe B (serves 2, 2 onions) planned for 2 produce one onion line of 4 pieces, listed in overlap.
+  - A recipe with servings 2 planned for 4 doubles all amounts; tags count once per entry.
   - Covers AE2. Cream 350 ml needed, packs [200, 500] → evaluation shows leftover 50 ml; the list line shows 350 ml with no pack suggestion.
-  - Covers AE3. Coriander with no pack sizes shows the summed amount and no leftover.
-  - `evaluateWeek` on an unsaved candidate leaves the stored week unchanged.
+  - Covers AE3. Coriander with no pack sizes shows the summed amount and a `null` leftover, in evaluation and on the list.
+  - `evaluateCandidateWeek` on an unsaved candidate leaves the stored week and its entries unchanged.
   - Overlap lists only ingredients used by two or more entries.
-  - Two ops on the same item: the later client timestamp wins regardless of arrival order.
+  - `getWeek` on a new key creates the week once; a second call returns the same week. `2026-W54`, `2026-W00` and `2026-44` are field errors; `2026-W53` is accepted.
+  - `setWeekEntries` keeps entry IDs it was given, updates their servings and day, inserts new entries and deletes omitted ones; omitting an entry with a cook event is refused and changes nothing.
+  - A new entry with an archived recipe is a field error.
+  - The list returns each line's ingredient ID, and a `check` op with that ID checks the line.
+  - Two ops on the same item: the later client timestamp wins regardless of arrival order; an op with the same timestamp as the stored state does not change it.
   - An op for an item no longer on the list (recipe removed) is ignored without error.
-  - Extras are added, renamed and removed through ops and survive a plan change.
-  - The first check-off of a week writes exactly one snapshot; later ops do not overwrite it.
-  - Setting or evaluating a week for user A with user B's recipe ID fails as not found and returns none of B's ingredients.
-- **Verification:** Planning and shopping tests pass.
+  - Extras are added, renamed, checked and removed through ops, and survive a plan change; replaying an `addExtra` does not duplicate it.
+  - The first check-off of a week writes exactly one snapshot; later ops do not overwrite it. `snapshotEndedWeeks` snapshots an ended week that was never checked off, skips an ended week with no entries and a current week, and leaves existing snapshots unchanged.
+  - `evaluateCandidateWeek` with an archived recipe is a field error; `getWeek` still evaluates a saved entry whose recipe was archived later.
+  - An op stamped in the future is applied as of `now`, so a later real op from another device still wins.
+  - Setting or evaluating a week for user A with user B's recipe ID fails as not found and returns none of B's ingredients; user B cannot read or change user A's list, and an op naming one of A's extras from B is ignored.
+- **Verification:** Planning and shopping tests pass on PGlite; `domain` lint, typecheck, test and build pass.
 
 ### U6. Cooking, statistics, taste profile and sharing domain
 
