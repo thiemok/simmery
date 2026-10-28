@@ -66,6 +66,7 @@ describe('createRecipe', () => {
       servings: 2,
       sourceUrl: null,
       archivedAt: null,
+      imported: false,
       steps: ['Mix the dough', 'Bake'],
       tags: ['bread', 'vegetarian'],
     });

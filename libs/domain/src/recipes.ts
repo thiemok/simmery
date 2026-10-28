@@ -4,6 +4,7 @@ import {
   recipeSteps,
   recipeTags,
   recipes,
+  shareLinks,
   type Database,
 } from '@simmery/db';
 import { normalize, unitKey, type IngredientUnits } from '@simmery/units';
@@ -73,6 +74,8 @@ export interface Recipe {
   sourceUrl: string | null;
   /** Set when the recipe was deleted; it stays readable and can be restored. */
   archivedAt: Date | null;
+  /** Copied from a share link; the sharer is recorded but never returned (R2, R24). */
+  imported: boolean;
   lines: RecipeLine[];
   steps: string[];
   tags: string[];
@@ -215,18 +218,35 @@ async function writeChildren(
   }
 }
 
+export interface ImportSource {
+  userId: string;
+  recipeId: string;
+}
+
 /** Saves a whole recipe; any unresolved line unit refuses the save with an `UnresolvedUnitsError`. */
-export async function createRecipe(
+export function createRecipe(db: Database, userId: string, input: RecipeInput): Promise<Recipe> {
+  return insertRecipe(db, userId, input);
+}
+
+export async function insertRecipe(
   db: Database,
   userId: string,
   input: RecipeInput,
+  importedFrom?: ImportSource,
 ): Promise<Recipe> {
   const recipe = await prepareRecipe(db, userId, input);
   const id = await db.transaction(async (tx) => {
     const { title, servings, sourceUrl } = recipe;
     const [{ id }] = await tx
       .insert(recipes)
-      .values({ userId, title, servings, sourceUrl })
+      .values({
+        userId,
+        title,
+        servings,
+        sourceUrl,
+        importedFromUserId: importedFrom?.userId,
+        importedFromRecipeId: importedFrom?.recipeId,
+      })
       .returning({ id: recipes.id });
     await writeChildren(tx, userId, id, recipe);
     return id;
@@ -312,6 +332,7 @@ export async function getRecipe(db: Database, userId: string, id: string): Promi
     servings: recipe.servings,
     sourceUrl: recipe.sourceUrl,
     archivedAt: recipe.archivedAt,
+    imported: recipe.importedFromRecipeId !== null,
     lines,
     steps: steps.map((step) => step.text),
     tags: tags.get(id) ?? [],
@@ -405,10 +426,22 @@ async function setArchivedAt(
 
 /**
  * Archives the recipe instead of removing it, so it can be restored and cook history
- * keeps resolving it.
+ * keeps resolving it. Its share links are revoked, so a later restore does not share it again.
  */
 export function deleteRecipe(db: Database, userId: string, id: string): Promise<void> {
-  return setArchivedAt(db, userId, id, sql`coalesce(${recipes.archivedAt}, now())`);
+  return db.transaction(async (tx) => {
+    await setArchivedAt(tx, userId, id, sql`coalesce(${recipes.archivedAt}, now())`);
+    await tx
+      .update(shareLinks)
+      .set({ revokedAt: sql`now()` })
+      .where(
+        and(
+          eq(shareLinks.userId, userId),
+          eq(shareLinks.recipeId, id),
+          isNull(shareLinks.revokedAt),
+        ),
+      );
+  });
 }
 
 export function restoreRecipe(db: Database, userId: string, id: string): Promise<void> {
