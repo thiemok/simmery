@@ -255,7 +255,10 @@ describe('web app hosting', () => {
     expect((await t.request('/api/nope', { user: userA })).headers.get('content-type')).toContain(
       'application/json',
     );
-    expect((await t.app.request('/.well-known/oauth-protected-resource')).status).toBe(404);
+    expect((await t.app.request('/.well-known/nope')).status).toBe(404);
+    expect(
+      (await t.app.request('/.well-known/oauth-protected-resource')).headers.get('content-type'),
+    ).toContain('application/json');
   });
 });
 

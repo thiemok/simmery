@@ -11,9 +11,11 @@ export const ingredientInput = z.object({
   conversions: z.array(z.object({ unit: z.string(), factor: z.number() })).optional(),
 });
 
+// `never` rather than `undefined` keeps the other key out: MCP lists these
+// schemas as JSON Schema, and zod cannot convert `undefined`.
 const lineSource = z.union([
-  z.object({ ingredientId: z.string(), newIngredient: z.undefined().optional() }),
-  z.object({ newIngredient: ingredientInput, ingredientId: z.undefined().optional() }),
+  z.object({ ingredientId: z.string(), newIngredient: z.never().optional() }),
+  z.object({ newIngredient: ingredientInput, ingredientId: z.never().optional() }),
 ]);
 
 export const recipeInput = z.object({
@@ -38,6 +40,17 @@ export const importInput = z.object({
     ),
   ),
 });
+
+export const weekEntries = z.array(
+  z.object({
+    id: z.string().optional(),
+    recipeId: z.string(),
+    servings: z.number(),
+    day: z.number().nullish(),
+  }),
+);
+
+export const candidateEntries = z.array(z.object({ recipeId: z.string(), servings: z.number() }));
 
 /** Query strings arrive as text; `true` and `false` are the only booleans. */
 export const queryBoolean = z.enum(['true', 'false']).transform((value) => value === 'true');

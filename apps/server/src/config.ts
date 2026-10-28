@@ -6,6 +6,10 @@ const configSchema = z.object({
   WORKOS_CLIENT_ID: z.string().min(1),
   // iron-webcrypto seals the session cookie and needs at least 32 characters.
   WORKOS_COOKIE_PASSWORD: z.string().min(32),
+  // The AuthKit issuer; MCP access tokens are verified against its JWKS (KTD3).
+  WORKOS_AUTHKIT_DOMAIN: z
+    .url({ protocol: /^https$/ })
+    .refine((url) => !url.endsWith('/'), 'must not end with a slash'),
   PUBLIC_BASE_URL: z
     .url({ protocol: /^https?$/ })
     .refine((url) => !url.endsWith('/'), 'must not end with a slash'),

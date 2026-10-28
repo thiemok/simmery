@@ -1,8 +1,10 @@
 import { serve } from '@hono/node-server';
 import { createDatabase, migrate } from '@simmery/db';
 import { WorkOS } from '@workos-inc/node';
+import { createRemoteJWKSet } from 'jose';
 import { Pool } from 'pg';
 import { createApp } from './app.js';
+import { authkitBearerAuth } from './auth/jwt.js';
 import { workosSessionAuth } from './auth/workos.js';
 import { loadConfig } from './config.js';
 import { createLogger, safeError } from './logger.js';
@@ -25,6 +27,13 @@ const app = createApp({
     cookiePassword: config.WORKOS_COOKIE_PASSWORD,
     redirectUri: `${config.PUBLIC_BASE_URL}/auth/callback`,
   }),
+  bearer: authkitBearerAuth({
+    issuer: config.WORKOS_AUTHKIT_DOMAIN,
+    resource: `${config.PUBLIC_BASE_URL}/mcp`,
+    keys: createRemoteJWKSet(new URL('/oauth2/jwks', config.WORKOS_AUTHKIT_DOMAIN)),
+    users: workos.userManagement,
+  }),
+  authkitDomain: config.WORKOS_AUTHKIT_DOMAIN,
   logger,
   publicBaseUrl: config.PUBLIC_BASE_URL,
   checkDatabase: async () => {

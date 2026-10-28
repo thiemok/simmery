@@ -9,6 +9,7 @@ import {
 } from '@simmery/domain';
 import type { ErrorHandler, ValidationTargets } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { ZodType } from 'zod';
 import { safeError, type Logger } from './logger.js';
 
@@ -42,22 +43,37 @@ export function validate<Target extends keyof ValidationTargets, Schema extends 
   });
 }
 
+/**
+ * The status and body a domain error answers with, shared by the API and the
+ * MCP tools so an agent sees what the web app sees (KTD2). Undefined for any
+ * other error.
+ */
+export function domainErrorBody(
+  error: unknown,
+): { status: ContentfulStatusCode; body: Record<string, unknown> } | undefined {
+  if (error instanceof ValidationError) {
+    return { status: 400, body: { error: 'validation', issues: error.issues } };
+  }
+  if (error instanceof NotFoundError) {
+    return { status: 404, body: { error: 'not_found', entity: error.entity } };
+  }
+  if (error instanceof ConflictError) {
+    return { status: 409, body: { error: 'conflict', reason: error.reason } };
+  }
+  if (error instanceof UnresolvedUnitsError) {
+    return { status: 422, body: { error: 'unresolved_units', lines: error.lines } };
+  }
+  if (error instanceof NoLongerSharedError) {
+    return { status: 410, body: { error: 'no_longer_shared' } };
+  }
+  return undefined;
+}
+
 export function errorHandler(logger: Logger): ErrorHandler {
   return (error, c) => {
-    if (error instanceof ValidationError) {
-      return c.json({ error: 'validation', issues: error.issues }, 400);
-    }
-    if (error instanceof NotFoundError) {
-      return c.json({ error: 'not_found', entity: error.entity }, 404);
-    }
-    if (error instanceof ConflictError) {
-      return c.json({ error: 'conflict', reason: error.reason }, 409);
-    }
-    if (error instanceof UnresolvedUnitsError) {
-      return c.json({ error: 'unresolved_units', lines: error.lines }, 422);
-    }
-    if (error instanceof NoLongerSharedError) {
-      return c.json({ error: 'no_longer_shared' }, 410);
+    const domain = domainErrorBody(error);
+    if (domain) {
+      return c.json(domain.body, domain.status);
     }
     if (error instanceof HTTPException) {
       if (error.status === 400) {
