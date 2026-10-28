@@ -1,8 +1,9 @@
-import { recipeLines, recipeTags, recipes, type Database } from '@simmery/db';
+import { recipeLines, recipes, type Database } from '@simmery/db';
 import { packFit, roundAmount } from '@simmery/units';
 import { and, eq, inArray } from 'drizzle-orm';
 import { loadIngredients } from './catalog.js';
 import { NotFoundError, isUuid, throwIfIssues, type FieldIssue } from './errors.js';
+import { tagsByRecipe } from './recipes.js';
 
 export interface EvaluationEntry {
   recipeId: string;
@@ -37,13 +38,10 @@ export interface WeekIngredientLine {
 
 export interface WeekEvaluation {
   lines: WeekIngredientLine[];
-  /** Lines used by two or more entries. */
   overlap: WeekIngredientLine[];
-  /** Planned entries per recipe tag. */
   tagCounts: Record<string, number>;
 }
 
-/** Pure evaluation of a week's entries: per-ingredient totals, overlap, leftovers and tag counts. */
 export function evaluateWeek(
   entries: readonly EvaluationEntry[],
   recipesById: ReadonlyMap<string, EvaluationRecipe>,
@@ -102,41 +100,46 @@ interface LoadedRecipe extends EvaluationRecipe {
   archived: boolean;
 }
 
-async function loadRecipes(
-  db: Database,
-  userId: string,
-  ids: readonly string[],
-): Promise<Map<string, LoadedRecipe>> {
+/** Loads the caller's recipe rows; an ID that is not the caller's is not found (KTD4). */
+export async function loadOwnedRecipes(db: Database, userId: string, ids: readonly string[]) {
   const unique = [...new Set(ids)];
   const invalid = unique.find((id) => !isUuid(id));
   if (invalid) {
     throw new NotFoundError('recipe', invalid);
   }
-  if (unique.length === 0) {
-    return new Map();
-  }
-  const rows = await db
-    .select({ id: recipes.id, servings: recipes.servings, archivedAt: recipes.archivedAt })
-    .from(recipes)
-    .where(and(eq(recipes.userId, userId), inArray(recipes.id, unique)));
+  const rows =
+    unique.length === 0
+      ? []
+      : await db
+          .select({ id: recipes.id, servings: recipes.servings, archivedAt: recipes.archivedAt })
+          .from(recipes)
+          .where(and(eq(recipes.userId, userId), inArray(recipes.id, unique)));
   const missing = unique.find((id) => !rows.some((row) => row.id === id));
   if (missing) {
     throw new NotFoundError('recipe', missing);
   }
+  return rows;
+}
 
-  const [lineRows, tagRows] = await Promise.all([
-    db
-      .select({
-        recipeId: recipeLines.recipeId,
-        ingredientId: recipeLines.ingredientId,
-        canonicalAmount: recipeLines.canonicalAmount,
-      })
-      .from(recipeLines)
-      .where(and(eq(recipeLines.userId, userId), inArray(recipeLines.recipeId, unique))),
-    db
-      .select({ recipeId: recipeTags.recipeId, tag: recipeTags.tag })
-      .from(recipeTags)
-      .where(and(eq(recipeTags.userId, userId), inArray(recipeTags.recipeId, unique))),
+async function loadRecipes(
+  db: Database,
+  userId: string,
+  ids: readonly string[],
+): Promise<Map<string, LoadedRecipe>> {
+  const rows = await loadOwnedRecipes(db, userId, ids);
+  const recipeIds = rows.map((row) => row.id);
+  const [lineRows, tags] = await Promise.all([
+    recipeIds.length === 0
+      ? []
+      : db
+          .select({
+            recipeId: recipeLines.recipeId,
+            ingredientId: recipeLines.ingredientId,
+            canonicalAmount: recipeLines.canonicalAmount,
+          })
+          .from(recipeLines)
+          .where(and(eq(recipeLines.userId, userId), inArray(recipeLines.recipeId, recipeIds))),
+    tagsByRecipe(db, userId, recipeIds),
   ]);
 
   return new Map(
@@ -146,7 +149,7 @@ async function loadRecipes(
         id: row.id,
         servings: row.servings,
         archived: row.archivedAt !== null,
-        tags: tagRows.filter((tag) => tag.recipeId === row.id).map((tag) => tag.tag),
+        tags: tags.get(row.id) ?? [],
         lines: lineRows.filter((line) => line.recipeId === row.id),
       },
     ]),

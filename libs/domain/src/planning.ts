@@ -8,7 +8,12 @@ import {
 } from '@simmery/db';
 import { and, asc, eq, exists, inArray, notExists, sql } from 'drizzle-orm';
 import { ConflictError, NotFoundError, isUuid, throwIfIssues, type FieldIssue } from './errors.js';
-import { evaluateEntries, servingsIssues, type WeekEvaluation } from './evaluate-week.js';
+import {
+  evaluateEntries,
+  loadOwnedRecipes,
+  servingsIssues,
+  type WeekEvaluation,
+} from './evaluate-week.js';
 
 export interface WeekEntryInput {
   /** A saved entry to update in place; omitted for a new entry. */
@@ -35,6 +40,7 @@ export interface Week {
 }
 
 const DAY_MS = 86_400_000;
+const WEEK_MS = 7 * DAY_MS;
 const weekKeyPattern = /^(\d{4})-W(\d{2})$/;
 
 function firstMonday(year: number): number {
@@ -50,17 +56,16 @@ export function weekStart(weekKey: string): Date | null {
   }
   const year = Number(match[1]);
   const week = Number(match[2]);
-  const weeksInYear = (firstMonday(year + 1) - firstMonday(year)) / (7 * DAY_MS);
+  const weeksInYear = (firstMonday(year + 1) - firstMonday(year)) / WEEK_MS;
   if (week < 1 || week > weeksInYear) {
     return null;
   }
-  return new Date(firstMonday(year) + (week - 1) * 7 * DAY_MS);
+  return new Date(firstMonday(year) + (week - 1) * WEEK_MS);
 }
 
-/** The domain stores no time zone, so a week ends at the following Monday 00:00 UTC. */
 function hasEnded(weekKey: string, now: Date): boolean {
   const start = weekStart(weekKey);
-  return start !== null && start.getTime() + 7 * DAY_MS <= now.getTime();
+  return start !== null && start.getTime() + WEEK_MS <= now.getTime();
 }
 
 export function checkWeekKey(weekKey: string): void {
@@ -70,12 +75,18 @@ export function checkWeekKey(weekKey: string): void {
 }
 
 export async function ensureWeek(db: Database, userId: string, weekKey: string) {
+  const find = () =>
+    db
+      .select({ id: weekPlans.id, weekKey: weekPlans.weekKey })
+      .from(weekPlans)
+      .where(and(eq(weekPlans.userId, userId), eq(weekPlans.weekKey, weekKey)));
+  const [existing] = await find();
+  if (existing) {
+    return existing;
+  }
   await db.insert(weekPlans).values({ userId, weekKey }).onConflictDoNothing();
-  const [week] = await db
-    .select({ id: weekPlans.id, weekKey: weekPlans.weekKey })
-    .from(weekPlans)
-    .where(and(eq(weekPlans.userId, userId), eq(weekPlans.weekKey, weekKey)));
-  return week;
+  const [created] = await find();
+  return created;
 }
 
 async function loadEntries(db: Database, userId: string, weekPlanId: string): Promise<WeekEntry[]> {
@@ -260,28 +271,16 @@ export async function setWeekEntries(
   return getWeek(db, userId, weekKey, now);
 }
 
-/** New entries need one of the caller's recipes that is not archived. */
 async function checkNewRecipes(
   db: Database,
   userId: string,
   entries: readonly WeekEntryInput[],
 ): Promise<void> {
-  const ids = [...new Set(entries.filter((entry) => !entry.id).map((entry) => entry.recipeId))];
-  const invalid = ids.find((id) => !isUuid(id));
-  if (invalid) {
-    throw new NotFoundError('recipe', invalid);
-  }
-  const rows =
-    ids.length === 0
-      ? []
-      : await db
-          .select({ id: recipes.id, archivedAt: recipes.archivedAt })
-          .from(recipes)
-          .where(and(eq(recipes.userId, userId), inArray(recipes.id, ids)));
-  const missing = ids.find((id) => !rows.some((row) => row.id === id));
-  if (missing) {
-    throw new NotFoundError('recipe', missing);
-  }
+  const rows = await loadOwnedRecipes(
+    db,
+    userId,
+    entries.filter((entry) => !entry.id).map((entry) => entry.recipeId),
+  );
   const archived = new Set(rows.filter((row) => row.archivedAt).map((row) => row.id));
   throwIfIssues(
     entries.flatMap((entry, index) =>
