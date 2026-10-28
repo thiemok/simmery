@@ -74,3 +74,4 @@ export {
   type ShareLink,
   type SharedRecipe,
 } from './sharing.js';
+export { ensureUser, getUser, type UserIdentity } from './users.js';
