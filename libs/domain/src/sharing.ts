@@ -173,15 +173,17 @@ export async function importSharedRecipe(
       sourceUrl: recipe.sourceUrl,
       steps: recipe.steps,
       tags: recipe.tags,
-      lines: lines.map(
-        ({ amount, unit, ...ingredient }, index) =>
-          ({
-            ...ingredient,
-            amount: amount ?? recipe.lines[index].amount,
-            unit: unit ?? recipe.lines[index].unit,
-            note: recipe.lines[index].note,
-          }) as RecipeLineInput,
-      ),
+      lines: lines.map((mapping, index): RecipeLineInput => {
+        const source = recipe.lines[index];
+        const line = {
+          amount: mapping.amount ?? source.amount,
+          unit: mapping.unit ?? source.unit,
+          note: source.note,
+        };
+        return mapping.newIngredient
+          ? { ...line, newIngredient: mapping.newIngredient }
+          : { ...line, ingredientId: mapping.ingredientId };
+      }),
     },
     { userId: ownerId, recipeId: recipe.id },
   );

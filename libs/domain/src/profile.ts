@@ -16,7 +16,6 @@ export async function getTasteProfile(db: Database, userId: string): Promise<Tas
   return profile ?? { body: '', updatedAt: null };
 }
 
-/** Replaces the whole profile text. */
 export async function updateTasteProfile(
   db: Database,
   userId: string,

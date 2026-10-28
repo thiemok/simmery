@@ -7,9 +7,9 @@ import {
   type Database,
 } from '@simmery/db';
 import { roundAmount } from '@simmery/units';
-import { and, asc, count, eq, exists, max, sql } from 'drizzle-orm';
+import { and, asc, count, eq, exists, inArray, max, sql } from 'drizzle-orm';
 import type { WeekEvaluation } from './evaluate-week.js';
-import { evaluateSavedWeek, snapshotEndedWeeks, weekStart } from './planning.js';
+import { WEEK_MS, evaluateSavedWeek, snapshotEndedWeeks, startedWithinWeeks } from './planning.js';
 
 export interface RecipeCookStats {
   recipeId: string;
@@ -56,10 +56,14 @@ export interface Statistics {
   mostBought: BoughtIngredient[];
 }
 
-const WEEK_MS = 7 * 86_400_000;
 const STALE_AFTER_WEEKS = 4;
 const TREND_WEEKS = 12;
 const MOST_BOUGHT_LIMIT = 10;
+
+/** Never-cooked recipes sort as the oldest. */
+function cookedTime(row: RecipeCookStats): number {
+  return row.lastCookedAt?.getTime() ?? -Infinity;
+}
 
 async function recipeStats(db: Database, userId: string): Promise<RecipeCookStats[]> {
   const rows = await db
@@ -89,11 +93,7 @@ async function recipeStats(db: Database, userId: string): Promise<RecipeCookStat
       archived: archivedAt !== null,
       averageRating: averageRating === null ? null : roundAmount(averageRating),
     }))
-    .sort(
-      (a, b) =>
-        (b.lastCookedAt?.getTime() ?? -Infinity) - (a.lastCookedAt?.getTime() ?? -Infinity) ||
-        a.title.localeCompare(b.title),
-    );
+    .sort((a, b) => cookedTime(b) - cookedTime(a) || a.title.localeCompare(b.title));
 }
 
 function cookRecords(db: Database, userId: string): Promise<CookRecord[]> {
@@ -121,17 +121,9 @@ function cookRecords(db: Database, userId: string): Promise<CookRecord[]> {
 
 /** Weeks with entries that started within the trend span up to now; snapshots win over live figures. */
 async function weekTrends(db: Database, userId: string, now: Date): Promise<WeekTrend[]> {
-  const rows = await db
-    .select({
-      id: weekPlans.id,
-      weekKey: weekPlans.weekKey,
-      evaluation: weekSnapshots.evaluation,
-    })
+  const planned = await db
+    .select({ id: weekPlans.id, weekKey: weekPlans.weekKey })
     .from(weekPlans)
-    .leftJoin(
-      weekSnapshots,
-      and(eq(weekSnapshots.userId, weekPlans.userId), eq(weekSnapshots.weekPlanId, weekPlans.id)),
-    )
     .where(
       and(
         eq(weekPlans.userId, userId),
@@ -144,24 +136,37 @@ async function weekTrends(db: Database, userId: string, now: Date): Promise<Week
       ),
     )
     .orderBy(asc(weekPlans.weekKey));
-
-  const inWindow = rows.filter((row) => {
-    const start = weekStart(row.weekKey)!.getTime();
-    return start <= now.getTime() && start + TREND_WEEKS * WEEK_MS > now.getTime();
-  });
-  const trends: WeekTrend[] = [];
-  for (const row of inWindow) {
-    trends.push(
-      row.evaluation === null
-        ? {
-            weekKey: row.weekKey,
+  const inWindow = planned.filter((week) => startedWithinWeeks(week.weekKey, now, TREND_WEEKS));
+  const snapshots =
+    inWindow.length === 0
+      ? []
+      : await db
+          .select({ weekPlanId: weekSnapshots.weekPlanId, evaluation: weekSnapshots.evaluation })
+          .from(weekSnapshots)
+          .where(
+            and(
+              eq(weekSnapshots.userId, userId),
+              inArray(
+                weekSnapshots.weekPlanId,
+                inWindow.map((week) => week.id),
+              ),
+            ),
+          );
+  const frozen = new Map(
+    snapshots.map((snapshot) => [snapshot.weekPlanId, snapshot.evaluation as WeekEvaluation]),
+  );
+  return Promise.all(
+    inWindow.map(async (week): Promise<WeekTrend> => {
+      const evaluation = frozen.get(week.id);
+      return evaluation
+        ? { weekKey: week.weekKey, frozen: true, evaluation }
+        : {
+            weekKey: week.weekKey,
             frozen: false,
-            evaluation: await evaluateSavedWeek(db, userId, row.id),
-          }
-        : { weekKey: row.weekKey, frozen: true, evaluation: row.evaluation as WeekEvaluation },
-    );
-  }
-  return trends;
+            evaluation: await evaluateSavedWeek(db, userId, week.id),
+          };
+    }),
+  );
 }
 
 function mostBought(weeks: readonly WeekTrend[]): BoughtIngredient[] {
@@ -205,10 +210,6 @@ export async function getStatistics(
       (row) =>
         !row.archived && (row.lastCookedAt === null || row.lastCookedAt.getTime() < staleBefore),
     )
-    .sort(
-      (a, b) =>
-        (a.lastCookedAt?.getTime() ?? -Infinity) - (b.lastCookedAt?.getTime() ?? -Infinity) ||
-        a.title.localeCompare(b.title),
-    );
+    .sort((a, b) => cookedTime(a) - cookedTime(b) || a.title.localeCompare(b.title));
   return { recipes: recipeRows, notCookedRecently, cooks, weeks, mostBought: mostBought(weeks) };
 }

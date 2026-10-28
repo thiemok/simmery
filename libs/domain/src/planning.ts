@@ -40,7 +40,7 @@ export interface Week {
 }
 
 const DAY_MS = 86_400_000;
-const WEEK_MS = 7 * DAY_MS;
+export const WEEK_MS = 7 * DAY_MS;
 const weekKeyPattern = /^(\d{4})-W(\d{2})$/;
 
 function firstMonday(year: number): number {
@@ -61,6 +61,16 @@ export function weekStart(weekKey: string): Date | null {
     return null;
   }
   return new Date(firstMonday(year) + (week - 1) * WEEK_MS);
+}
+
+/** Whether the week has started and began less than `weeks` weeks before `now`. */
+export function startedWithinWeeks(weekKey: string, now: Date, weeks: number): boolean {
+  const start = weekStart(weekKey);
+  return (
+    start !== null &&
+    start.getTime() <= now.getTime() &&
+    start.getTime() + weeks * WEEK_MS > now.getTime()
+  );
 }
 
 function hasEnded(weekKey: string, now: Date): boolean {

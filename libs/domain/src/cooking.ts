@@ -105,7 +105,6 @@ export async function markCooked(
   return event;
 }
 
-/** Sets or clears the rating of an earlier cook event. */
 export async function rateCookEvent(
   db: Database,
   userId: string,
