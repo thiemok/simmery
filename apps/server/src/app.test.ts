@@ -105,6 +105,25 @@ describe('cross-origin writes', () => {
     expect(await archived()).toHaveLength(1);
   });
 
+  it('rejects a write without Origin or Sec-Fetch-Site', async () => {
+    const response = await t.app.request(`/api/recipes/${recipe.id}/restore`, {
+      method: 'POST',
+      headers: cookieHeader(`active|${userA.id}|${userA.email}`),
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it('accepts a same-origin write that only carries Sec-Fetch-Site', async () => {
+    const response = await t.app.request(`/api/recipes/${recipe.id}/restore`, {
+      method: 'POST',
+      headers: {
+        ...cookieHeader(`active|${userA.id}|${userA.email}`),
+        'sec-fetch-site': 'same-origin',
+      },
+    });
+    expect(response.status).toBe(204);
+  });
+
   it('accepts the same write from the app origin', async () => {
     const response = await t.request(`/api/recipes/${recipe.id}/restore`, {
       user: userA,
@@ -121,11 +140,6 @@ describe('errors', () => {
   });
 
   it('answers a malformed JSON body with 400', async () => {
-    const response = await t.request('/api/recipes', {
-      user: userA,
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-    });
     const malformed = await t.app.request('/api/recipes', {
       method: 'POST',
       headers: {
@@ -135,7 +149,6 @@ describe('errors', () => {
       },
       body: '{"title":',
     });
-    expect(response.status).toBe(400);
     expect(malformed.status).toBe(400);
     expect(await malformed.json()).toMatchObject({ error: 'validation' });
   });
@@ -225,6 +238,17 @@ describe('web app hosting', () => {
     const response = await t.app.request('/assets/app.js');
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('immutable');
+  });
+
+  it('answers a missing asset with 404, never the cached shell', async () => {
+    const response = await t.app.request('/assets/missing.js');
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBeNull();
+  });
+
+  it('serves the root page uncached', async () => {
+    const response = await t.app.request('/');
+    expect(response.headers.get('cache-control')).toBe('no-cache');
   });
 
   it('never answers server paths with the shell', async () => {

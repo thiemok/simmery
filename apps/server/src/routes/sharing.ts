@@ -1,5 +1,5 @@
 import { importSharedRecipe, resolveShareToken, revokeShareLink } from '@simmery/domain';
-import { Hono, type MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth/middleware.js';
 import { validate } from '../errors.js';
@@ -17,7 +17,7 @@ export function shareLinkRoutes({ db }: RouteDeps) {
 
 /** Reading a shared recipe needs no session (R23); importing it does (R24). */
 export function sharedRecipeRoutes({ db }: RouteDeps, requireSession: MiddlewareHandler<AuthEnv>) {
-  return new Hono<AuthEnv>()
+  return authedRouter()
     .get('/:token', validate('param', tokenParam), async (c) =>
       c.json(await resolveShareToken(db, c.req.valid('param').token)),
     )

@@ -3,6 +3,7 @@ import type { UserIdentity } from '@simmery/domain';
 import pino from 'pino';
 import { Writable } from 'node:stream';
 import { createApp, type AppDeps } from './app.js';
+import { SESSION_COOKIE } from './auth/cookies.js';
 import type { ResumeResult, SessionAuth } from './auth/session.js';
 
 export const BASE_URL = 'https://simmery.test';
@@ -20,9 +21,8 @@ export const sessionOf = (user: UserIdentity) => `active|${user.id}|${user.email
  * `expired|id|email` (refreshes to an active seal), `signed_out`, `unavailable`.
  * A sign-in code is `id|email`.
  */
-export function fakeSessionAuth(): SessionAuth & { refreshes: number } {
+export function fakeSessionAuth(): SessionAuth {
   return {
-    refreshes: 0,
     authorizationUrl: (state) => `https://auth.test/authorize?state=${state}`,
     signIn: async (code) => ({ user: parseUser(code), sealedSession: `active|${code}` }),
     async resume(sealed): Promise<ResumeResult> {
@@ -32,7 +32,6 @@ export function fakeSessionAuth(): SessionAuth & { refreshes: number } {
         return { status: 'active', user };
       }
       if (kind === 'expired') {
-        this.refreshes += 1;
         return { status: 'refreshed', user, sealedSession: sessionOf(user) };
       }
       return { status: kind === 'unavailable' ? 'unavailable' : 'signed_out' };
@@ -83,7 +82,7 @@ export async function createTestApp(options: TestAppOptions = {}) {
       headers: {
         origin: BASE_URL,
         ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        ...(user ? { cookie: `simmery_session=${encodeURIComponent(sessionOf(user))}` } : {}),
+        ...(user ? { cookie: `${SESSION_COOKIE}=${encodeURIComponent(sessionOf(user))}` } : {}),
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),

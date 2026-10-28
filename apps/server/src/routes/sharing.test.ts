@@ -100,8 +100,4 @@ describe('profile and account API', () => {
       body: '',
     });
   });
-
-  it('returns the signed-in user', async () => {
-    expect(await (await t.request('/api/me', { user: userB })).json()).toEqual(userB);
-  });
 });

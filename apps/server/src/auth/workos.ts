@@ -24,6 +24,13 @@ const identity = (user: { id: string; email: string }): UserIdentity => ({
 });
 
 /**
+ * jose's codes for a JWKS it could not fetch or parse (`ERR_JOSE_GENERIC` covers
+ * a non-200 answer). A key the set lacks (`ERR_JWKS_NO_MATCHING_KEY`) is a bad
+ * token, not an outage.
+ */
+const UNREACHABLE_CODES = new Set(['ERR_JWKS_TIMEOUT', 'ERR_JWKS_INVALID', 'ERR_JOSE_GENERIC']);
+
+/**
  * Network trouble reaching WorkOS (JWKS fetch, timeouts) as opposed to a
  * cookie that cannot be read: a malformed seal also throws from `authenticate`.
  */
@@ -33,7 +40,7 @@ function isUnreachable(error: unknown): boolean {
   }
   const code = (error as { code?: unknown }).code;
   return (
-    (typeof code === 'string' && code.startsWith('ERR_JWKS')) ||
+    (typeof code === 'string' && UNREACHABLE_CODES.has(code)) ||
     error.name === 'TimeoutError' ||
     error.name === 'AbortError' ||
     (error instanceof TypeError && error.message === 'fetch failed')

@@ -25,7 +25,10 @@ export function safeReturnTo(returnTo: string | undefined, publicBaseUrl: string
   try {
     const base = new URL(publicBaseUrl);
     const url = new URL(returnTo, base);
-    return url.origin === base.origin ? `${url.pathname}${url.search}${url.hash}` : '/';
+    // `/.//evil.example` resolves to the path `//evil.example`, which a browser reads as a host.
+    return url.origin === base.origin && !url.pathname.startsWith('//')
+      ? `${url.pathname}${url.search}${url.hash}`
+      : '/';
   } catch {
     return '/';
   }

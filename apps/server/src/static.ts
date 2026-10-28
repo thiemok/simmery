@@ -17,10 +17,25 @@ export function webApp(root: string) {
   const files = serveStatic({ root });
   let indexHtml: Promise<string> | undefined;
   return new Hono()
-    .use('/assets/*', async (c, next) => {
+    .get(
+      '/assets/*',
+      async (c, next) => {
+        await next();
+        if (c.res.ok) {
+          c.header('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+      files,
+      // A missing asset must not get the shell, which would then be cached as immutable.
+      (c) => c.notFound(),
+    )
+    .use('*', async (c, next) => {
       await next();
-      if (c.res.ok) {
-        c.header('Cache-Control', 'public, max-age=31536000, immutable');
+      if (
+        !ownedByServer(c.req.path) &&
+        c.res.headers.get('content-type')?.startsWith('text/html')
+      ) {
+        c.header('Cache-Control', 'no-cache');
       }
     })
     .use('*', async (c, next) => (ownedByServer(c.req.path) ? next() : files(c, next)))
@@ -28,8 +43,10 @@ export function webApp(root: string) {
       if (ownedByServer(c.req.path)) {
         return next();
       }
-      c.header('Cache-Control', 'no-cache');
-      indexHtml ??= readFile(join(root, 'index.html'), 'utf8');
+      indexHtml ??= readFile(join(root, 'index.html'), 'utf8').catch((error: unknown) => {
+        indexHtml = undefined;
+        throw error;
+      });
       return c.html(await indexHtml);
     });
 }

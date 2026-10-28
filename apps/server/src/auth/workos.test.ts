@@ -11,12 +11,13 @@ type Refresh = () => Promise<
   | { authenticated: false; reason: string; retryable: boolean }
 >;
 
-/** A WorkOS user-management stand-in whose sessions behave per seal. */
 function fakeWorkOS(sessions: Record<string, { authenticate: Authenticate; refresh?: Refresh }>) {
   const refresh = vi.fn<(seal: string) => void>();
+  const getAuthorizationUrl = vi.fn(() => 'https://auth.test/authorize');
+  const authenticateWithCode = vi.fn(async () => ({ user, sealedSession: 'seal-new' }));
   const userManagement = {
-    getAuthorizationUrl: ({ state }: { state?: string }) => `https://auth.test/?state=${state}`,
-    authenticateWithCode: async () => ({ user, sealedSession: 'seal-new' }),
+    getAuthorizationUrl,
+    authenticateWithCode,
     loadSealedSession: ({ sessionData }: { sessionData: string }) => {
       const session = sessions[sessionData] ?? {
         authenticate: async () => ({ authenticated: false, reason: 'invalid_session_cookie' }),
@@ -42,7 +43,7 @@ function fakeWorkOS(sessions: Record<string, { authenticate: Authenticate; refre
     cookiePassword: 'x'.repeat(32),
     redirectUri: 'https://simmery.test/auth/callback',
   });
-  return { auth, refresh };
+  return { auth, refresh, getAuthorizationUrl, authenticateWithCode };
 }
 
 const active: Authenticate = async () => ({ authenticated: true, user });
@@ -115,6 +116,32 @@ describe('workosSessionAuth', () => {
     expect(await auth.resume('seal')).toEqual({ status: 'unavailable' });
   });
 
+  it('keeps the session when the refresh call itself fails', async () => {
+    const { auth } = fakeWorkOS({
+      old: {
+        authenticate: expired,
+        refresh: async () => {
+          throw new TypeError('fetch failed');
+        },
+      },
+    });
+    expect(await auth.resume('old')).toEqual({ status: 'unavailable' });
+  });
+
+  it('tells a JWKS outage from a token signed with an unknown key', async () => {
+    const failing = (code: string) => async () => {
+      throw Object.assign(new Error(code), { code });
+    };
+    const { auth } = fakeWorkOS({
+      outage: { authenticate: failing('ERR_JOSE_GENERIC') },
+      timeout: { authenticate: failing('ERR_JWKS_TIMEOUT') },
+      unknownKey: { authenticate: failing('ERR_JWKS_NO_MATCHING_KEY') },
+    });
+    expect(await auth.resume('outage')).toEqual({ status: 'unavailable' });
+    expect(await auth.resume('timeout')).toEqual({ status: 'unavailable' });
+    expect(await auth.resume('unknownKey')).toEqual({ status: 'signed_out' });
+  });
+
   it('signs out an unreadable cookie', async () => {
     const { auth } = fakeWorkOS({
       broken: {
@@ -136,9 +163,30 @@ describe('workosSessionAuth', () => {
     expect(await auth.logoutUrl('garbage')).toBeNull();
   });
 
-  it('signs in with the code and returns the sealed session', async () => {
-    const { auth } = fakeWorkOS({});
-    expect(await auth.signIn('code')).toEqual({ user, sealedSession: 'seal-new' });
-    expect(auth.authorizationUrl('s1')).toBe('https://auth.test/?state=s1');
+  it('has no logout URL when the expired session cannot be refreshed', async () => {
+    const { auth } = fakeWorkOS({
+      old: {
+        authenticate: expired,
+        refresh: async () => ({ authenticated: false, reason: 'invalid_grant', retryable: false }),
+      },
+    });
+    expect(await auth.logoutUrl('old')).toBeNull();
+  });
+
+  it('starts hosted AuthKit login and exchanges the code for a sealed session', async () => {
+    const { auth, getAuthorizationUrl, authenticateWithCode } = fakeWorkOS({});
+    auth.authorizationUrl('s1');
+    expect(getAuthorizationUrl).toHaveBeenCalledWith({
+      provider: 'authkit',
+      clientId: 'client_x',
+      redirectUri: 'https://simmery.test/auth/callback',
+      state: 's1',
+    });
+    expect(await auth.signIn('code-1')).toEqual({ user, sealedSession: 'seal-new' });
+    expect(authenticateWithCode).toHaveBeenCalledWith({
+      code: 'code-1',
+      clientId: 'client_x',
+      session: { sealSession: true, cookiePassword: 'x'.repeat(32) },
+    });
   });
 });

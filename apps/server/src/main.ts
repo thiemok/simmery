@@ -10,7 +10,9 @@ import { createLogger, safeError } from './logger.js';
 const config = loadConfig(process.env);
 const logger = createLogger(config.LOG_LEVEL);
 
-const pool = new Pool({ connectionString: config.DATABASE_URL });
+const pool = new Pool({ connectionString: config.DATABASE_URL, connectionTimeoutMillis: 5_000 });
+// An idle client losing its connection emits `error`; unhandled, it would crash the process.
+pool.on('error', (error) => logger.error({ err: safeError(error) }, 'idle database client failed'));
 await migrate(pool);
 
 // Session `authenticate()` and `refresh()` read the client ID from the instance.

@@ -13,7 +13,6 @@ afterEach(async () => {
   await t.close();
 });
 
-/** Starts a login and returns the state and the cookie that carries it. */
 async function startLogin(returnTo?: string) {
   const query = returnTo === undefined ? '' : `?returnTo=${encodeURIComponent(returnTo)}`;
   const response = await t.app.request(`/auth/login${query}`);
@@ -49,6 +48,18 @@ describe('auth routes', () => {
       expect.objectContaining({ id: 'user_a', email: 'a@example.com' }),
     ]);
   });
+
+  it.each(['//evil.example', '/\t/evil.example', '/.//evil.example', 'https://evil.example'])(
+    'returns to / after sign-in when returnTo is %s',
+    async (returnTo) => {
+      const { state, cookie } = await startLogin(returnTo);
+      const response = await callback(
+        `code=${encodeURIComponent('user_a|a@example.com')}&state=${state}`,
+        cookie,
+      );
+      expect(response.headers.get('location')).toBe('/');
+    },
+  );
 
   it('rejects a callback whose state does not match', async () => {
     const { cookie } = await startLogin();
@@ -107,6 +118,9 @@ describe('safeReturnTo', () => {
     '//evil.example',
     '/\t/evil.example',
     '/\\evil.example',
+    '/.//evil.example',
+    '/a/..//evil.example',
+    `${BASE_URL}//evil.example`,
     'https://evil.example',
     'javascript:alert(1)',
   ])('replaces %s with /', (input) => {

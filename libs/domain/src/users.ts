@@ -1,5 +1,5 @@
 import { users, type Database } from '@simmery/db';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export interface UserIdentity {
   /** WorkOS user ID (KTD4). */
@@ -20,4 +20,12 @@ export async function ensureUser(db: Database, identity: UserIdentity): Promise<
       set: { email: identity.email },
       setWhere: sql`${users.email} is distinct from excluded.email`,
     });
+}
+
+export async function getUser(db: Database, userId: string): Promise<UserIdentity> {
+  const [user] = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId));
+  return user;
 }
