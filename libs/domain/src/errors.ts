@@ -1,11 +1,19 @@
 /** A missing row, or one owned by another user: both look the same to the caller (KTD4). */
 export class NotFoundError extends Error {
   constructor(
-    readonly entity: 'ingredient' | 'recipe' | 'plan_entry',
+    readonly entity: 'ingredient' | 'recipe' | 'plan_entry' | 'cook_event' | 'share_link',
     readonly id: string,
   ) {
     super(`${entity} ${id} not found`);
     this.name = 'NotFoundError';
+  }
+}
+
+/** The share link was revoked, or its recipe deleted (AE5). */
+export class NoLongerSharedError extends Error {
+  constructor() {
+    super('recipe is no longer shared');
+    this.name = 'NoLongerSharedError';
   }
 }
 

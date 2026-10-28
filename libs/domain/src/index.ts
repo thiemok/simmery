@@ -21,6 +21,15 @@ export {
   type RecipeSummary,
 } from './recipes.js';
 export {
+  deleteCookEvent,
+  getCookView,
+  markCooked,
+  rateCookEvent,
+  scaleRecipe,
+  type CookEvent,
+  type CookView,
+} from './cooking.js';
+export {
   evaluateCandidateWeek,
   evaluateWeek,
   type EvaluationEntry,
@@ -46,3 +55,22 @@ export {
   type ShoppingItem,
   type ShoppingList,
 } from './shopping.js';
+export {
+  getStatistics,
+  type BoughtIngredient,
+  type CookRecord,
+  type RecipeCookStats,
+  type Statistics,
+  type WeekTrend,
+} from './stats.js';
+export { getTasteProfile, updateTasteProfile, type TasteProfile } from './profile.js';
+export {
+  createShareLink,
+  importSharedRecipe,
+  listShareLinks,
+  resolveShareToken,
+  revokeShareLink,
+  type ImportLineMapping,
+  type ShareLink,
+  type SharedRecipe,
+} from './sharing.js';
