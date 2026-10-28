@@ -216,10 +216,22 @@ function WeekPlan({ weekKey, week }: { weekKey: string; week: Week }) {
   const [entries, setEntries] = useState<LocalEntry[]>(() => week.entries.map(localOf));
   const latest = useRef(entries);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [debouncing, setDebouncing] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [synced, setSynced] = useState(week);
   const save = useSetWeekEntries(weekKey);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // The whole-list save deletes every entry it omits, so while nothing is waiting to be
+  // saved the list follows the server, including meals added elsewhere (the agent, a phone).
+  if (week !== synced && !save.isPending && !debouncing && failure === null) {
+    setSynced(week);
+    const keyById = new Map(entries.flatMap((entry) => (entry.id ? [[entry.id, entry.key]] : [])));
+    const next = week.entries.map((entry) => {
+      const local = localOf(entry);
+      return { ...local, key: keyById.get(entry.id) ?? local.key };
+    });
+    setEntries(next);
+  }
 
   function commit(next: LocalEntry[]) {
     latest.current = next;
@@ -228,6 +240,8 @@ function WeekPlan({ weekKey, week }: { weekKey: string; week: Week }) {
 
   function send() {
     clearTimeout(timer.current);
+    timer.current = undefined;
+    setDebouncing(false);
     save.mutate(
       (saved) => {
         const next = withSavedIds(latest.current, saved?.entries ?? []);
@@ -257,10 +271,29 @@ function WeekPlan({ weekKey, week }: { weekKey: string; week: Week }) {
     clearTimeout(timer.current);
     if (debounce) {
       timer.current = setTimeout(send, 400);
+      setDebouncing(true);
     } else {
       send();
     }
   }
+
+  useEffect(() => {
+    latest.current = entries;
+  }, [entries]);
+
+  const sendLatest = useRef<() => void>(() => {});
+  useEffect(() => {
+    sendLatest.current = send;
+  });
+  useEffect(
+    () => () => {
+      // Leaving the page must not drop a servings change still waiting for its debounce.
+      if (timer.current !== undefined) {
+        sendLatest.current();
+      }
+    },
+    [],
+  );
 
   const update = (key: string, patch: Partial<LocalEntry>, options?: { debounce?: boolean }) =>
     change(

@@ -38,7 +38,7 @@ export function IngredientPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const term = useDebounced(text.trim(), 200);
-  const results = useIngredients(term);
+  const results = useIngredients(term, { enabled: open && term !== '' });
   const listId = useId();
   const [shown, setShown] = useState(value);
   if (value !== shown) {
@@ -99,7 +99,13 @@ export function IngredientPicker({
           setActive(-1);
         }}
         onKeyDown={onKeyDown}
-        onBlur={() => setOpen(false)}
+        onBlur={() => {
+          setOpen(false);
+          // Text that no longer names the chosen ingredient would save that ingredient anyway.
+          if (value && !matchesExactly(value, text)) {
+            setText(value.name);
+          }
+        }}
       />
       <ul id={listId} role="listbox" className={styles.list} hidden={!showList}>
         {options.map((option, index) => (

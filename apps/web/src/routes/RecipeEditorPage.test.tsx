@@ -179,4 +179,17 @@ describe('recipe editor', () => {
     expect(picker).toHaveValue('garlic');
     expect(picker).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('puts the chosen ingredient back when its text is typed over and left without a choice', async () => {
+    const { user } = await renderApp('/recipes/new', { 'GET /ingredients': catalog });
+    await screen.findByLabelText('Title');
+    await fillLine(user, { amount: '2', unit: 'clove', ingredientText: 'garl', option: /^garlic/ });
+
+    const picker = screen.getByRole('combobox', { name: 'Ingredient, line 1' });
+    await user.clear(picker);
+    await user.type(picker, 'flour');
+    await user.tab();
+
+    expect(picker).toHaveValue('garlic');
+  });
 });

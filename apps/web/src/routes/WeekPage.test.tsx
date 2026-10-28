@@ -159,4 +159,42 @@ describe('week view', () => {
     await waitFor(() => expect(attempts).toBe(2));
     expect(screen.queryByText('Could not save your changes.')).not.toBeInTheDocument();
   });
+
+  it('takes in meals added elsewhere before the next save, so the save does not delete them', async () => {
+    const withPhoneMeal = week([
+      ...twoMeals.entries,
+      { id: 'e3', recipeId: 'r3', recipeTitle: 'Soup', servings: 2, day: null },
+    ]);
+    let reads = 0;
+    const { user, calls, queryClient } = await renderApp(`/week/${WEEK}`, {
+      [`GET /weeks/${WEEK}`]: () => (++reads === 1 ? twoMeals : withPhoneMeal),
+      [`PUT /weeks/${WEEK}/entries`]: withPhoneMeal,
+    });
+    await screen.findByText('Pasta');
+
+    await act(() => queryClient.invalidateQueries({ queryKey: ['weeks', WEEK] }));
+    expect(await screen.findByText('Soup')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Day for Pasta'), 'Fri');
+    await waitFor(() => expect(callsTo(calls, 'PUT', `/weeks/${WEEK}/entries`)).toHaveLength(1));
+    const sent = callsTo(calls, 'PUT', `/weeks/${WEEK}/entries`)[0].body as {
+      entries: { id?: string }[];
+    };
+    expect(sent.entries.map((entry) => entry.id)).toEqual(['e1', 'e2', 'e3']);
+  });
+
+  it('still saves a servings change when the page is left before the debounce fires', async () => {
+    const { user, calls, router } = await renderApp(`/week/${WEEK}`, {
+      [`GET /weeks/${WEEK}`]: twoMeals,
+      [`PUT /weeks/${WEEK}/entries`]: twoMeals,
+      'GET /recipes': [],
+    });
+    await user.click(await screen.findByRole('button', { name: 'More servings of Pasta' }));
+    await act(() => router.navigate({ to: '/recipes' }));
+
+    await waitFor(() => expect(callsTo(calls, 'PUT', `/weeks/${WEEK}/entries`)).toHaveLength(1));
+    expect(callsTo(calls, 'PUT', `/weeks/${WEEK}/entries`)[0].body).toMatchObject({
+      entries: [{ id: 'e1', servings: 3 }, { id: 'e2' }],
+    });
+  });
 });

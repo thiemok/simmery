@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
@@ -63,6 +64,7 @@ export const me = { id: 'user_a', email: 'a@example.com' };
 
 export interface RenderedApp {
   user: UserEvent;
+  queryClient: QueryClient;
   router: ReturnType<typeof createAppRouter>;
   calls: Call[];
   /** What a 401 calls; in the browser it navigates to sign-in. */
@@ -90,7 +92,7 @@ export async function renderApp(
     />,
   );
   await router.load();
-  return { user, router, calls: api.calls, onUnauthenticated };
+  return { user, queryClient, router, calls: api.calls, onUnauthenticated };
 }
 
 export const callsTo = (calls: Call[], method: string, path: string) =>
