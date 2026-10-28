@@ -132,6 +132,19 @@ export async function writeSnapshot(
     .onConflictDoNothing({ target: weekSnapshots.weekPlanId });
 }
 
+export async function hasEntries(
+  db: Database,
+  userId: string,
+  weekPlanId: string,
+): Promise<boolean> {
+  const [entry] = await db
+    .select({ id: planEntries.id })
+    .from(planEntries)
+    .where(and(eq(planEntries.userId, userId), eq(planEntries.weekPlanId, weekPlanId)))
+    .limit(1);
+  return entry !== undefined;
+}
+
 /** Snapshots every ended week of the caller that has entries and no snapshot yet (KTD13). */
 export async function snapshotEndedWeeks(db: Database, userId: string, now: Date): Promise<void> {
   const candidates = await db

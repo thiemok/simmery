@@ -294,6 +294,33 @@ describe('applyListOps', () => {
     expect(await db.select().from(weekSnapshots)).toEqual([snapshot]);
   });
 
+  it('writes no snapshot for a check-off on a week without entries', async () => {
+    await applyListOps(
+      db,
+      'user_a',
+      '2026-W45',
+      [
+        { type: 'addExtra', id: extraId, text: 'Bread', at: at(1) },
+        { type: 'checkExtra', id: extraId, checked: true, at: at(2) },
+      ],
+      now,
+    );
+    expect(await db.select().from(weekSnapshots)).toEqual([]);
+
+    await setWeekEntries(db, 'user_a', '2026-W45', [{ recipeId: tacos.id, servings: 2 }], now);
+    await applyListOps(
+      db,
+      'user_a',
+      '2026-W45',
+      [{ type: 'check', ingredientId: coriander.id, checked: true, at: at(3) }],
+      now,
+    );
+    const [snapshot] = await db.select().from(weekSnapshots);
+    expect(snapshot.evaluation).toMatchObject({
+      lines: [expect.objectContaining({ name: 'Coriander' })],
+    });
+  });
+
   it('keeps users’ lists apart', async () => {
     await applyListOps(
       db,

@@ -6,6 +6,7 @@ import {
   checkWeekKey,
   ensureWeek,
   evaluateSavedWeek,
+  hasEntries,
   snapshotEndedWeeks,
   writeSnapshot,
 } from './planning.js';
@@ -198,7 +199,7 @@ export async function applyListOps(
       }
     }
 
-    if (checkedOff) {
+    if (checkedOff && (await hasEntries(tx, userId, week.id))) {
       await writeSnapshot(tx, userId, week.id, evaluation);
     }
     return evaluation;
