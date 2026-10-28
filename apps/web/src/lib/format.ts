@@ -25,6 +25,12 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+export const splitList = (text: string) =>
+  text
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
 /** A number typed into a field, or null while it is empty or not a number. */
 export function parseAmount(text: string): number | null {
   const value = Number(text.replace(',', '.'));

@@ -1,15 +1,9 @@
 import { useState } from 'react';
 import { conflictReason, conflictMessage, errorMessage, fieldIssues } from '../api/errors';
 import { useSaveIngredient, type Ingredient } from '../api/queries';
-import { parseAmount } from '../lib/format';
+import { parseAmount, splitList } from '../lib/format';
 import { Field } from './Field';
 import styles from './LineEditor.module.css';
-
-const parseList = (text: string) =>
-  text
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
 
 /** Creates a catalog ingredient inline from a recipe or import line (R9, Assumptions). */
 export function CreateIngredientForm({
@@ -30,7 +24,7 @@ export function CreateIngredientForm({
   const save = useSaveIngredient();
   const issues = fieldIssues(save.error);
   const conflict = conflictReason(save.error);
-  const packs = parseList(packSizes).map(parseAmount);
+  const packs = splitList(packSizes).map(parseAmount);
   const valid = name.trim() !== '' && canonicalUnit.trim() !== '' && packs.every((p) => p !== null);
 
   function submit() {

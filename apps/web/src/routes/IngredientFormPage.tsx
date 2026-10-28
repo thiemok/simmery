@@ -3,15 +3,9 @@ import { useState } from 'react';
 import { conflictReason, conflictMessage, errorMessage, fieldIssues } from '../api/errors';
 import { useIngredient, useSaveIngredient, type Ingredient } from '../api/queries';
 import { ErrorState, Loading, Notice } from '../components/states';
-import { parseAmount } from '../lib/format';
+import { parseAmount, splitList } from '../lib/format';
 import { Field } from '../components/Field';
 import styles from './pages.module.css';
-
-const splitList = (text: string) =>
-  text
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
 
 interface ConversionDraft {
   unit: string;
@@ -105,16 +99,14 @@ function IngredientForm({ initial }: { initial?: Ingredient }) {
             <li key={index} className="row">
               <span>1</span>
               <input
-                className="input"
-                style={{ maxWidth: 110 }}
+                className={`input ${styles.short}`}
                 aria-label={`Conversion ${index + 1} unit`}
                 value={conversion.unit}
                 onChange={(event) => updateConversion(index, { unit: event.target.value })}
               />
               <span>=</span>
               <input
-                className="input"
-                style={{ maxWidth: 110 }}
+                className={`input ${styles.short}`}
                 inputMode="decimal"
                 aria-label={`Conversion ${index + 1} factor`}
                 value={conversion.factor}

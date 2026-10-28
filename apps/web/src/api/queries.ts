@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   MutationCache,
   QueryCache,
   QueryClient,
@@ -13,12 +14,8 @@ import { done, isApiError, ok } from './errors';
 type RecipeRoute = ApiClient['recipes'][':id'];
 type IngredientRoute = ApiClient['ingredients'][':id'];
 
-export type Me = InferResponseType<ApiClient['me']['$get'], 200>;
 export type Recipe = InferResponseType<RecipeRoute['$get'], 200>;
-export type RecipeLine = Recipe['lines'][number];
-export type RecipeSummary = InferResponseType<ApiClient['recipes']['$get'], 200>[number];
 export type RecipeInput = InferRequestType<ApiClient['recipes']['$post']>['json'];
-export type RecipeLineInput = RecipeInput['lines'][number];
 export type Ingredient = InferResponseType<IngredientRoute['$get'], 200>;
 export type IngredientInput = InferRequestType<ApiClient['ingredients']['$post']>['json'];
 export type Week = InferResponseType<ApiClient['weeks'][':weekKey']['$get'], 200>;
@@ -26,15 +23,12 @@ export type WeekEntry = Week['entries'][number];
 export type WeekEntryInput = InferRequestType<
   ApiClient['weeks'][':weekKey']['entries']['$put']
 >['json']['entries'][number];
-export type WeekIngredientLine = Week['evaluation']['lines'][number];
 export type CookView = InferResponseType<
   ApiClient['plan-entries'][':id']['cook-view']['$get'],
   200
 >;
-export type CookEvent = CookView['cookEvents'][number];
 export type Statistics = InferResponseType<ApiClient['statistics']['$get'], 200>;
 export type TasteProfile = InferResponseType<ApiClient['taste-profile']['$get'], 200>;
-export type ShareLink = InferResponseType<RecipeRoute['share-links']['$get'], 200>[number];
 export type SharedRecipe = InferResponseType<ApiClient['share'][':token']['$get'], 200>;
 export type ImportLineMapping = InferRequestType<
   ApiClient['share'][':token']['import']['$post']
@@ -112,6 +106,7 @@ export function useRecipe(id: string, servings?: number, { enabled = true } = {}
   return useQuery({
     enabled,
     queryKey: keys.recipe(id, servings),
+    placeholderData: keepPreviousData,
     queryFn: () =>
       ok(
         api.recipes[':id'].$get({
@@ -150,9 +145,10 @@ export function useRestoreRecipe() {
   });
 }
 
-export function useIngredients(query = '') {
+export function useIngredients(query = '', { enabled = true } = {}) {
   const api = useApi();
   return useQuery({
+    enabled,
     queryKey: keys.ingredientSearch(query),
     queryFn: () => ok(api.ingredients.$get({ query: query ? { query } : {} })),
   });

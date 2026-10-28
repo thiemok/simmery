@@ -137,6 +137,14 @@
   font-family: var(--f-mono);
 }
 
+.short {
+  max-width: 110px;
+}
+
+.tagInput {
+  max-width: 240px;
+}
+
 .bar {
   display: block;
   height: 8px;

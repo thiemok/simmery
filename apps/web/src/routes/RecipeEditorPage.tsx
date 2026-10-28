@@ -74,7 +74,7 @@ function move<T>(items: T[], from: number, to: number): T[] {
 function RecipeForm({ id, initial }: { id?: string; initial: Draft }) {
   const [draft, setDraft] = useState(initial);
   const [tagText, setTagText] = useState('');
-  /** Line indices the server last answered `unresolved_units` for; cleared when a line changes. */
+  /** Keys of the lines the server last answered `unresolved_units` for; cleared when a line changes. */
   const [serverFlags, setServerFlags] = useState<Set<string>>(new Set());
   const save = useSaveRecipe(id);
   const navigate = useNavigate();
@@ -278,8 +278,7 @@ function RecipeForm({ id, initial }: { id?: string; initial: Draft }) {
         )}
         <div className="row">
           <input
-            className="input"
-            style={{ maxWidth: 240 }}
+            className={`input ${styles.tagInput}`}
             aria-label="New tag"
             placeholder="e.g. vegetarian"
             value={tagText}

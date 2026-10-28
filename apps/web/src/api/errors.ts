@@ -17,20 +17,18 @@ export class ApiError extends Error {
   }
 }
 
-interface ApiResponse {
+interface ApiResponse<T = unknown> {
   ok: boolean;
   status: number;
+  json(): Promise<T>;
 }
 
 async function failure(res: ApiResponse): Promise<ApiError> {
-  const body = await (res as unknown as Response)
-    .json()
-    .catch((): ApiErrorBody => ({ error: 'internal' }));
+  const body = await res.json().catch((): ApiErrorBody => ({ error: 'internal' }));
   return new ApiError(res.status, body as ApiErrorBody);
 }
 
-/** Resolves to the JSON body of a successful response, or throws an `ApiError`. */
-export async function ok<T>(request: Promise<ApiResponse & { json(): Promise<T> }>): Promise<T> {
+export async function ok<T>(request: Promise<ApiResponse<T>>): Promise<T> {
   const res = await request;
   if (!res.ok) {
     throw await failure(res);
