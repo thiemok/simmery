@@ -295,6 +295,29 @@ sequenceDiagram
   UI->>IDB: replace cached list, clear sent ops
 ```
 
+MCP connection and request authorization (R26, KTD3, KTD10; directional, U8 carries the detail; `<base>` is `PUBLIC_BASE_URL`):
+
+```mermaid
+sequenceDiagram
+  participant C as MCP client
+  participant S as simmery /mcp
+  participant W as WorkOS AuthKit
+  C->>S: POST /mcp (no token)
+  S-->>C: 401, WWW-Authenticate resource_metadata=<base>/.well-known/oauth-protected-resource/mcp
+  C->>S: GET protected-resource metadata
+  S-->>C: resource=<base>/mcp, authorization_servers=[AuthKit domain]
+  C->>W: OAuth (CIMD or DCR, PKCE, resource=<base>/mcp), user signs in
+  W-->>C: access token (aud=<base>/mcp, sub=WorkOS user ID)
+  C->>S: POST /mcp, Bearer token
+  S->>S: Host check, JWT via AuthKit JWKS (iss, aud, exp)
+  opt no local user for sub
+    S->>W: getUser(sub) for the email
+    S->>S: ensureUser
+  end
+  S->>S: new MCP server bound to sub, run tool via libs/domain
+  S-->>C: tool result
+```
+
 MCP tool surface (directional names; one tool per domain operation, all scoped to the token's user):
 
 | Area | Tools |
@@ -303,7 +326,7 @@ MCP tool surface (directional names; one tool per domain operation, all scoped t
 | Recipes | `search_recipes`, `get_recipe`, `save_recipe` (returns per-line unit flags on rejection), `delete_recipe` |
 | Planning | `get_week`, `set_week_entries`, `evaluate_week` (overlap, leftovers, tag variety, no save) |
 | Shopping | `get_shopping_list` |
-| History | `get_cook_history`, `get_statistics` |
+| History | `get_cook_history` (per-recipe cook stats and cook events), `get_statistics` (week trends, most bought) |
 | Profile | `get_taste_profile`, `update_taste_profile` |
 
 ### Output Structure
@@ -326,6 +349,8 @@ docker-compose.yml   local Postgres
 - Week boundaries use ISO weeks (Monday start) in the user's browser time zone; the week key is `YYYY-Www`. The domain stores no time zone, so it decides that a week has ended (for its snapshot) in UTC; for zones far from UTC a snapshot can land up to about half a day early or late, which is acceptable for trend statistics (U5).
 - A share link is an unguessable random token in the URL; a revoked token returns a "no longer shared" page.
 - The built-in unit registry is metric (`mg`, `g`, `kg`, `ml`, `cl`, `dl`, `l`), kitchen spoons (`tsp` 5 ml, `tbsp` 15 ml) and count-like units (`piece`, `clove`, `pinch`, `bunch`, `slice`, `sprig`, `can`); `cup`, `fl oz`, `oz` and `lb` are left out as ambiguous and enter only as per-ingredient conversions (U3).
+- The agent plans and reads but does not shop or cook: MCP has no tools for shopping-list check-offs, extras, marking meals cooked, restoring archived recipes or share links, which stay on the website (R25 lists plans, the shopping list, history and statistics as tool areas, not every web action) (U8).
+- A local user's email is read from WorkOS only when their first MCP request creates the row; afterwards it follows WorkOS changes through web sign-ins only (U8).
 - Deleting a recipe always archives it (hidden from the collection and from new planning; existing plan entries keep it until removed) rather than removing it, so the user can restore it and history stays intact for R20. A later cleanup job removes archived recipes after a retention period (THI-62).
 
 ### Risks & Dependencies
@@ -607,27 +632,57 @@ U1 → U2 → U3 → U12 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U1
 ### U8. MCP endpoint
 
 - **Goal:** A remote MCP server any MCP client can connect to with OAuth, acting only as the signed-in user.
-- **Requirements:** R8, R22, R25, R26, R27, F1, F3, AE6; KTD3, KTD10.
+- **Requirements:** R2, R8, R11, R22, R25, R26, R27, F1, F3, AE6; KTD2, KTD3, KTD4, KTD10.
 - **Dependencies:** U7.
-- **Files:** `apps/server/src/auth/jwt.ts`, `apps/server/src/mcp/server.ts`, `apps/server/src/mcp/tools/*.ts`, `apps/server/src/mcp/metadata.ts`, `apps/server/src/mcp/mcp.test.ts`.
+- **Files:** `apps/server/package.json`, `apps/server/src/config.ts`, `apps/server/src/config.test.ts`, `.env.example`, `apps/server/src/auth/jwt.ts`, `apps/server/src/auth/jwt.test.ts`, `apps/server/src/errors.ts`, `apps/server/src/routes/schemas.ts`, `apps/server/src/routes/weeks.ts`, `apps/server/src/mcp/metadata.ts`, `apps/server/src/mcp/endpoint.ts`, `apps/server/src/mcp/server.ts`, `apps/server/src/mcp/result.ts`, `apps/server/src/mcp/tools/{catalog,recipes,planning,history,profile}.ts`, `apps/server/src/mcp/mcp.test.ts`, `apps/server/src/app.ts`, `apps/server/src/main.ts`, `apps/server/src/testing.ts`, `apps/server/README.md`.
 - **Approach:**
-  1. Serve `/.well-known/oauth-protected-resource` naming AuthKit as authorization server and the `/mcp` URL as resource.
-  2. Verify bearer JWTs (issuer, audience/resource, expiry) via JWKS before the MCP handler; 401 with `WWW-Authenticate` pointing at the metadata on failure Provision the local user through `ensureUser` (U7); if AuthKit access tokens carry no email claim, read it once from the WorkOS user API.
-  3. Mount the MCP app with Host/Origin validation set for the public hostname from `config.ts` (the adapter defaults to localhost-only and would reject ingress traffic).
-  4. Build the MCP server per request from `authInfo` with the tool set in the MCP tool surface table under High-Level Technical Design; tool descriptions explain units, pack sizes and the unit-flag retry loop so agents can resolve R6 flags themselves.
-  5. `save_recipe` returns the per-line flags as a structured tool error rather than throwing.
-- **Patterns to follow:** MCP SDK v2 serving guide (Hono adapter, `requireBearerAuth`); AGENTS.md rule on one domain layer.
+  1. **Dependencies and config.** Add, pinned exactly: `@modelcontextprotocol/server` (2.4.x), `@modelcontextprotocol/hono` (2.0.x), `jose` (6.2.x), and `@modelcontextprotocol/client` (2.4.x) as a dev dependency for tests. `loadConfig` gains `WORKOS_AUTHKIT_DOMAIN`, the AuthKit issuer as an absolute `https` URL without a trailing slash (e.g. `https://example.authkit.app`), documented in `.env.example`. The MCP resource URL is derived, not configured: `${PUBLIC_BASE_URL}/mcp`.
+  2. **Protected-resource metadata.** `mcp/metadata.ts` serves `{ resource: <mcp URL>, authorization_servers: [WORKOS_AUTHKIT_DOMAIN], bearer_methods_supported: ['header'] }` at both `/.well-known/oauth-protected-resource/mcp` (the RFC 9728 path-suffixed URL the SDK's `getOAuthProtectedResourceMetadataUrl` computes and puts in `WWW-Authenticate`) and `/.well-known/oauth-protected-resource`, without auth. Mirroring AuthKit's authorization-server metadata at `/.well-known/oauth-authorization-server` is not built: WorkOS documents it only for clients without protected-resource-metadata support, and claude.ai and Claude Code have it.
+  3. **Token verification (`auth/jwt.ts`).** The one file that knows the token format (Risks table). It exports a `BearerAuth` seam the app depends on, with no WorkOS types, so tests inject keys and never call WorkOS:
+     - `verify(token)` → the SDK's `AuthInfo` with `extra.userId = sub`. Built over jose: `createRemoteJWKSet(${WORKOS_AUTHKIT_DOMAIN}/oauth2/jwks)` and `jwtVerify(token, jwks, { issuer: WORKOS_AUTHKIT_DOMAIN, audience: <mcp URL> })`. It sets `resource` to the MCP URL (jose has already checked that `aud`, string or array, contains it) and `expiresAt` from `exp`, which the SDK's bearer check requires. Only JWKS fetch failures (timeout, network error, an unusable JWKS response) are unavailable; every other jose error (bad signature, unsupported or `none` algorithm, wrong issuer or audience, expired, malformed, no matching key) becomes `OAuthError(InvalidToken)`, so the client gets 401.
+     - `email(userId)` → the user's email from `workos.userManagement.getUser(userId)`; AuthKit access tokens carry no email claim. WorkOS errors are unavailable.
+     `userManagement.verifyAccessToken()` from the WorkOS SDK is not used: it checks a different JWKS, does no audience check and expects session-token claims.
+  4. **Endpoint (`mcp/endpoint.ts`).** Mounted on `/mcp` in `createApp`, in this order:
+     - `hostHeaderValidation([publicHostname])` from `@modelcontextprotocol/hono`, with the hostname taken from `PUBLIC_BASE_URL`. The adapter's localhost-only default would reject ingress traffic, and binding without an allow-list disables the check; this is the DNS-rebinding defence. An `Origin` check is not added: requests without `Origin` always pass it, a bearer token is not sent ambiently so there is no CSRF to stop, and an allow-list of our own origin would reject browser-based MCP clients.
+     - A small bearer gate over `verifyBearerToken(authorization header, { verifier, expectedResource: <mcp URL>, resourceMetadataUrl })` from `@modelcontextprotocol/server`: missing, invalid or wrong-audience tokens get the response of `bearerAuthChallengeResponse(error, { resourceMetadataUrl })`, a 401 with `WWW-Authenticate: Bearer … resource_metadata="<metadata URL>"`. The verifier's unavailable error answers 503 `{ error: 'auth_unavailable' }`, as on the web side (U7), never 401 or 500. The SDK's `requireBearerAuth` is not used because it turns every non-`OAuthError` into 500 `server_error`. No scopes are required: AuthKit grants `openid profile email offline_access`, none of which narrows Simmery access.
+     - **Provisioning.** If `getUser(db, sub)` finds no local row, fetch the email through `BearerAuth.email` and call `ensureUser` (KTD4). An existing user costs no WorkOS call; their email follows WorkOS changes on their next web sign-in.
+     - `createMcpHandler(factory)` with the default `legacy: 'stateless'`, so 2025-era clients work too; the route calls `handler.fetch(c.req.raw, { authInfo })`. Every request builds a new server, bound to that request's user (KTD10).
+     The static SPA fallback already excludes `/mcp` and `/.well-known` (U7), and the `sameOrigin` CSRF check stays on `/api/*` and `/auth/logout`, not on `/mcp` (a bearer token is not an ambient credential).
+  5. **Server and tools (`mcp/server.ts`, `mcp/tools/*`).** `createMcpServer({ db, now, userId })` registers every tool through `registerTool` with a zod object `inputSchema`, a description and annotations (`readOnlyHint` on reads, `destructiveHint` on `delete_recipe` and `set_week_entries`). Server `instructions` explain the model: per-user catalog, one canonical unit per ingredient, conversions into it, pack sizes used only for leftover estimates, ISO week keys `YYYY-Www`, and the unit-flag retry loop. They also say that recipe text, tags and the taste profile are user content, some imported from other users through share links, and are data, never instructions. Input schemas reuse the API's shape-only schemas from `routes/schemas.ts` (`ingredientInput`, `recipeInput`, plus the week entry and evaluation schemas moved there from `routes/weeks.ts`), so web and MCP accept the same shapes (KTD2). The SDK converts each input schema to JSON Schema for `tools/list`, and zod cannot convert `z.undefined()`: the line-source union in `recipeInput` and `importInput` switches its "this key must be absent" fields from `z.undefined().optional()` to `z.never().optional()`, which parses the same and converts. Each tool is a thin call into `@simmery/domain` with the bound `userId`:
+     | Tool | Domain call |
+     |---|---|
+     | `list_ingredients` `{ query? }` | `listIngredients` |
+     | `upsert_ingredient` `{ id?, …ingredient }` | `updateIngredient` with `id`, else `createIngredient` |
+     | `search_recipes` `{ query?, tag?, archived? }` | `searchRecipes` |
+     | `get_recipe` `{ id, servings? }` | `getRecipe`, then `scaleRecipe` when `servings` is given |
+     | `save_recipe` `{ id?, recipe }` | `updateRecipe` with `id`, else `createRecipe`; lines may reference `ingredientId` or propose `newIngredient` (R8) |
+     | `delete_recipe` `{ id }` | `deleteRecipe` (archives; the description says it can be restored on the website) |
+     | `get_week` `{ weekKey }` | `getWeek` |
+     | `set_week_entries` `{ weekKey, entries }` | `setWeekEntries` (the description says it replaces the whole week: pass each entry's `id` from `get_week` to keep it, entries without an `id` are new, omitted ones are removed, and removing a cooked entry is refused with `entry_cooked`) |
+     | `evaluate_week` `{ entries }` | `evaluateCandidateWeek` (nothing saved) |
+     | `get_shopping_list` `{ weekKey }` | `getShoppingList` |
+     | `get_cook_history` `{}` | `getStatistics` → `{ recipes, notCookedRecently, cooks }` |
+     | `get_statistics` `{}` | `getStatistics` → `{ weeks, mostBought }` |
+     | `get_taste_profile` `{}` | `getTasteProfile` |
+     | `update_taste_profile` `{ body }` | `updateTasteProfile` (replaces the whole document) |
+     Shopping-list check-offs and cooking stay on the website; the agent plans and reads, matching F1 and the tool table above.
+  6. **Results and errors (`mcp/result.ts`).** One wrapper runs each tool body. Success returns the value as `structuredContent` (wrapped as `{ items }` when it is an array) and as JSON text content; no `outputSchema` is declared, because duplicating every domain type as zod would add a second contract to keep in step. Domain errors become `isError: true` results whose JSON body is the same one the API sends: `errors.ts` gets a shared `domainErrorBody(error)` (`validation`, `not_found`, `conflict`, `unresolved_units` with `lines: [{ index, unit }]`, `no_longer_shared`) that both `errorHandler` and the MCP wrapper use. This also covers `save_recipe`'s per-line unit flags, which come back as a result the agent can act on rather than a protocol error. Anything else is logged with `safeError` and returned as `{ error: 'internal' }`; the SDK would otherwise send the raw message, and a drizzle error message embeds query parameters (U7).
+  7. **Wiring.** `AppDeps` gains `bearer: BearerAuth`. `main.ts` builds it from config and the existing WorkOS client. `testing.ts` gets a test `BearerAuth` over a jose key pair made in-process (`generateKeyPair` + `createLocalJWKSet`), the same verify path as production, plus `tokenFor(user, claims?)` and an `mcpClient(user)` helper that connects the SDK `Client` through `StreamableHTTPClientTransport` with `fetch` routed to `app.request`; that fetch adds `Host: simmery.test`, because a Node `Request` carries no Host header and the host check rejects requests without one. The fake's `email(userId)` looks the email up from the known test users.
+- **Patterns to follow:** `apps/server/src/auth/session.ts` and `testing.ts` for a provider seam with an in-process fake; `apps/server/src/routes/weeks.ts` for thin domain adapters; `apps/server/src/errors.ts` for error shapes; MCP SDK v2 docs: serving with Hono (`ts.sdk.modelcontextprotocol.io/v2/serving/hono.html`) and authorization (`…/v2/serving/authorization.html`); WorkOS AuthKit MCP guide (`workos.com/docs/authkit/mcp`).
 - **Test scenarios:**
-  - `/mcp` without a token returns 401 with a `WWW-Authenticate` header referencing the protected-resource metadata URL.
-  - A token with the wrong audience is rejected.
-  - With user A's token, `list_tools` returns the documented tool set.
-  - Covers AE6. With user A's token, `get_recipe` for user B's recipe ID returns not found.
-  - `save_recipe` with an unresolved unit returns the flag list; after `upsert_ingredient` adds the conversion, the same call succeeds (F3).
-  - `evaluate_week` returns overlap and leftovers without changing the stored week; `set_week_entries` then persists it (F1).
-  - `update_taste_profile` followed by `get_taste_profile` returns the new text.
-  - A request carrying the configured public Host header reaches the MCP handler; an unknown Host is rejected.
-- **Execution note:** Check first, against a WorkOS staging environment, that AuthKit access tokens carry the MCP URL as audience/resource; if they do not, stop per the Goal Capsule.
-- **Verification:** MCP tests pass using the SDK client against the in-process app; a manual connection from Claude Code to the locally running server (WorkOS staging environment) lists tools and reads recipes. The claude.ai remote-connector check happens in U11 after rollout.
+  - `/mcp` without a token returns 401 with a `WWW-Authenticate` header naming `https://simmery.test/.well-known/oauth-protected-resource/mcp`; that URL and `/.well-known/oauth-protected-resource` return the metadata with the AuthKit domain and the `/mcp` resource, without auth.
+  - Tokens with the wrong audience, the wrong issuer, an expired `exp`, a signature from another key, `alg: none`, or a malformed structure are each rejected with 401; a JWKS fetch failure returns 503 `auth_unavailable`.
+  - A first request with a valid token for an unknown `sub` creates one local user with the email from `BearerAuth.email`; a second request makes no `email` call; an `email` failure on first contact returns 503 and creates no user.
+  - With user A's token, `listTools` returns exactly the documented tool set, each with a description, and `save_recipe`'s input schema lists `ingredientId` and `newIngredient` for a line; the recipes API still rejects a line carrying both.
+  - Covers AE6. With user A's token, `get_recipe` and `save_recipe` with an `id` of user B's recipe, `upsert_ingredient` with B's ingredient ID, and `set_week_entries` naming B's recipe each return an `isError` result with `not_found`, and B's rows are unchanged; `search_recipes` lists only A's recipes.
+  - Covers F3. `save_recipe` with "50 g garlic" where garlic's canonical unit is `clove` returns `isError` with `unresolved_units` and the line index; after `upsert_ingredient` adds the conversion `g → clove`, the same `save_recipe` call succeeds, and a line proposing a `newIngredient` creates it in A's catalog.
+  - Covers F1. `evaluate_week` with two recipes sharing an ingredient returns the overlap and leftovers and leaves the stored week unchanged; `set_week_entries` then persists it, `get_week` and `get_shopping_list` reflect it; a later `set_week_entries` that omits a cooked entry returns `isError` with `conflict` / `entry_cooked`.
+  - `update_taste_profile` followed by `get_taste_profile` returns the new text; `get_cook_history` after a cook (seeded through `markCooked`) lists it.
+  - A validation failure (empty recipe title) returns `isError` with field paths in the API's shape; a tool throwing a database error that carries an email returns `{ error: 'internal' }`, and neither the result nor the log line contains the email.
+  - A request with the configured public Host reaches the handler; `Host: evil.example` gets 403 before auth.
+  - `loadConfig` rejects a missing or non-URL `WORKOS_AUTHKIT_DOMAIN` and one with a trailing slash.
+- **Execution note:** The issue asks to confirm first, on a WorkOS staging environment, that AuthKit tokens carry the MCP URL as audience. WorkOS documents that `aud` is the requested resource only when that URL is registered as a Resource Indicator in the dashboard (otherwise it is the client ID), so audience checking against the MCP URL is the documented path and building can start on that basis. No staging environment exists yet (U7's PR recorded this). If one is available during U8, register `${PUBLIC_BASE_URL}/mcp` as a Resource Indicator, decode a real token and confirm `iss`, `aud` and `sub`; if tokens do not carry the resource, stop per the Goal Capsule. If not, the PR records the check as not done, alongside U7's sign-in check, and both must pass no later than the U11 live rollout.
+- **Verification:** `server` lint, typecheck, test and build pass; MCP tests use the SDK client end to end against the in-process app (Risks table). With a WorkOS staging environment, a manual connection from Claude Code to the locally running server lists tools and reads recipes, recorded in the PR; without one, the PR says so and the check moves to U11. The claude.ai remote-connector check happens in U11 after rollout.
 
 ### U9. Web app: recipes, catalog, planning, cooking, stats, profile, sharing
 
@@ -677,9 +732,9 @@ U1 → U2 → U3 → U12 → U4 → U5 → U6 → U7 → (U8, U9) → U10 → U1
 - **Files:** `apps/server/Dockerfile`, `apps/server/chart/**`, `.github/workflows/release.yml`, `.github/rulesets/tag-releases.json`, `nx.json` (release config), `DEPLOYMENT.md`.
 - **Approach:**
   1. Multi-stage Dockerfile building web and server, running as non-root on Node 22.
-  2. Helm chart: Deployment with liveness/readiness on `/healthz`/`/readyz`, Service, Ingress (host + TLS from values), env from a Secret (DB URL, WorkOS keys, cookie password).
+  2. Helm chart: Deployment with liveness/readiness on `/healthz`/`/readyz`, Service, Ingress (host + TLS from values), env from a Secret (DB URL, WorkOS keys, cookie password) plus `WORKOS_AUTHKIT_DOMAIN`.
   3. `nx release` config and release workflow copied from tiny-dash with `server-v*` tags and chart version sync.
-  4. `DEPLOYMENT.md` describing secrets (via 1Password operator in the kubernetes repo), WorkOS dashboard settings (sign-up disabled, CIMD + DCR, redirect URIs, resource indicator), and the rollout command.
+  4. `DEPLOYMENT.md` describing secrets (via 1Password operator in the kubernetes repo), WorkOS dashboard settings (sign-up disabled, CIMD + DCR, redirect URIs, `${PUBLIC_BASE_URL}/mcp` registered as a Resource Indicator so access tokens carry it as `aud`, U8), and the rollout command.
 - **Patterns to follow:** `tiny-dash` `DEPLOYMENT.md`, `.github/workflows/release.yml`, `api/chart`.
 - **Test expectation:** none -- packaging; proven by smoke checks.
 - **Verification:** `docker build` succeeds and the container serves `/healthz`; `helm lint` and `helm template` pass; a release run publishes image and chart to GHCR. After the live rollout, an invited email can sign in and an uninvited one cannot sign up (WorkOS public sign-up disabled, R1), and claude.ai connects to the public `/mcp` URL as a remote connector and lists tools.

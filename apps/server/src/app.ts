@@ -1,11 +1,14 @@
 import type { Database } from '@simmery/db';
 import { Hono } from 'hono';
+import type { BearerAuth } from './auth/jwt.js';
 import type { AuthEnv } from './auth/middleware.js';
 import { requireSession, sameOrigin } from './auth/middleware.js';
 import { authRoutes } from './auth/routes.js';
 import type { SessionAuth } from './auth/session.js';
 import { errorHandler } from './errors.js';
 import { requestLogger, type Logger } from './logger.js';
+import { mcpEndpoint, mcpResource } from './mcp/endpoint.js';
+import { protectedResourceMetadata } from './mcp/metadata.js';
 import { cookEventRoutes, planEntryRoutes } from './routes/cooking.js';
 import { ingredientRoutes } from './routes/ingredients.js';
 import { meRoutes } from './routes/me.js';
@@ -19,6 +22,9 @@ import { webApp } from './static.js';
 export interface AppDeps {
   db: Database;
   auth: SessionAuth;
+  bearer: BearerAuth;
+  /** The AuthKit domain MCP clients get their tokens from. */
+  authkitDomain: string;
   logger: Logger;
   /** Absolute origin the app is served from, without a trailing slash. */
   publicBaseUrl: string;
@@ -52,6 +58,8 @@ export type ApiType = ReturnType<typeof createApi>;
 export function createApp({
   db,
   auth,
+  bearer,
+  authkitDomain,
   logger,
   publicBaseUrl,
   checkDatabase,
@@ -81,6 +89,13 @@ export function createApp({
   app.use('/api/*', sameOrigin(origin));
   app.route('/api', createApi({ db, auth, now }, secure));
   app.all('/api/*', (c) => c.json({ error: 'not_found' }, 404));
+
+  const resource = mcpResource(publicBaseUrl);
+  app.route(
+    '/.well-known',
+    protectedResourceMetadata({ resource, authorizationServer: authkitDomain }),
+  );
+  app.route('/mcp', mcpEndpoint({ db, now, logger, bearer, resource }));
 
   if (webRoot) {
     app.route('/', webApp(webRoot));

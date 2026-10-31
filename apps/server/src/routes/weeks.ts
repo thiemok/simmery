@@ -8,23 +8,13 @@ import {
 import { z } from 'zod';
 import { validate } from '../errors.js';
 import { authedRouter, type RouteDeps } from './deps.js';
+import { candidateEntries, weekEntries } from './schemas.js';
 
 const weekParam = z.object({ weekKey: z.string() });
 
-const entries = z.object({
-  entries: z.array(
-    z.object({
-      id: z.string().optional(),
-      recipeId: z.string(),
-      servings: z.number(),
-      day: z.number().nullish(),
-    }),
-  ),
-});
+const entries = z.object({ entries: weekEntries });
 
-const evaluation = z.object({
-  entries: z.array(z.object({ recipeId: z.string(), servings: z.number() })),
-});
+const evaluation = z.object({ entries: candidateEntries });
 
 const at = { at: z.iso.datetime({ offset: true }).transform((value) => new Date(value)) };
 
