@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+const origin = (protocol: RegExp) =>
+  z.url({ protocol }).refine((url) => !url.endsWith('/'), 'must not end with a slash');
+
 const configSchema = z.object({
   DATABASE_URL: z.string().min(1),
   WORKOS_API_KEY: z.string().min(1),
@@ -7,12 +10,8 @@ const configSchema = z.object({
   // iron-webcrypto seals the session cookie and needs at least 32 characters.
   WORKOS_COOKIE_PASSWORD: z.string().min(32),
   // The AuthKit issuer; MCP access tokens are verified against its JWKS (KTD3).
-  WORKOS_AUTHKIT_DOMAIN: z
-    .url({ protocol: /^https$/ })
-    .refine((url) => !url.endsWith('/'), 'must not end with a slash'),
-  PUBLIC_BASE_URL: z
-    .url({ protocol: /^https?$/ })
-    .refine((url) => !url.endsWith('/'), 'must not end with a slash'),
+  WORKOS_AUTHKIT_DOMAIN: origin(/^https$/),
+  PUBLIC_BASE_URL: origin(/^https?$/),
   PORT: z.coerce.number().int().positive().default(3000),
   WEB_ROOT: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),

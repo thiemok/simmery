@@ -8,6 +8,7 @@ import { authkitBearerAuth } from './auth/jwt.js';
 import { workosSessionAuth } from './auth/workos.js';
 import { loadConfig } from './config.js';
 import { createLogger, safeError } from './logger.js';
+import { mcpResource } from './mcp/endpoint.js';
 
 const config = loadConfig(process.env);
 const logger = createLogger(config.LOG_LEVEL);
@@ -29,7 +30,7 @@ const app = createApp({
   }),
   bearer: authkitBearerAuth({
     issuer: config.WORKOS_AUTHKIT_DOMAIN,
-    resource: `${config.PUBLIC_BASE_URL}/mcp`,
+    resource: mcpResource(config.PUBLIC_BASE_URL),
     keys: createRemoteJWKSet(new URL('/oauth2/jwks', config.WORKOS_AUTHKIT_DOMAIN)),
     users: workos.userManagement,
   }),

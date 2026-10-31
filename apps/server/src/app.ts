@@ -7,7 +7,7 @@ import { authRoutes } from './auth/routes.js';
 import type { SessionAuth } from './auth/session.js';
 import { errorHandler } from './errors.js';
 import { requestLogger, type Logger } from './logger.js';
-import { mcpEndpoint } from './mcp/endpoint.js';
+import { mcpEndpoint, mcpResource } from './mcp/endpoint.js';
 import { protectedResourceMetadata } from './mcp/metadata.js';
 import { cookEventRoutes, planEntryRoutes } from './routes/cooking.js';
 import { ingredientRoutes } from './routes/ingredients.js';
@@ -22,7 +22,6 @@ import { webApp } from './static.js';
 export interface AppDeps {
   db: Database;
   auth: SessionAuth;
-  /** Verifies MCP access tokens. */
   bearer: BearerAuth;
   /** The AuthKit domain MCP clients get their tokens from. */
   authkitDomain: string;
@@ -91,7 +90,7 @@ export function createApp({
   app.route('/api', createApi({ db, auth, now }, secure));
   app.all('/api/*', (c) => c.json({ error: 'not_found' }, 404));
 
-  const resource = `${publicBaseUrl}/mcp`;
+  const resource = mcpResource(publicBaseUrl);
   app.route(
     '/.well-known',
     protectedResourceMetadata({ resource, authorizationServer: authkitDomain }),

@@ -1,9 +1,11 @@
 import { hostHeaderValidation } from '@modelcontextprotocol/hono';
 import {
+  OAuthError,
   bearerAuthChallengeResponse,
   createMcpHandler,
   getOAuthProtectedResourceMetadataUrl,
   verifyBearerToken,
+  type AuthInfo,
 } from '@modelcontextprotocol/server';
 import type { Database } from '@simmery/db';
 import { ensureUser, getUser } from '@simmery/domain';
@@ -27,7 +29,7 @@ export function mcpEndpoint({
   now: () => Date;
   logger: Logger;
   bearer: BearerAuth;
-  /** `${PUBLIC_BASE_URL}/mcp`. */
+  /** See `mcpResource`. */
   resource: string;
 }) {
   const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(new URL(resource));
@@ -36,43 +38,38 @@ export function mcpEndpoint({
     { onerror: (error) => logger.warn({ err: safeError(error) }, 'mcp request failed') },
   );
 
-  /** Runs a call to the identity provider; its failures answer the client directly. */
-  async function ask<T>(call: () => Promise<T>): Promise<T | Response> {
-    try {
-      return await call();
-    } catch (error) {
-      if (error instanceof AuthUnavailableError) {
-        logger.warn({ err: safeError(error.cause) }, 'identity provider unavailable');
-        return Response.json({ error: 'auth_unavailable' }, { status: 503 });
-      }
-      return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
-    }
-  }
-
   return (
     new Hono()
       // DNS-rebinding defence; the adapter's default allows only localhost.
       .use('*', hostHeaderValidation([new URL(resource).hostname]))
       .all('/', async (c) => {
-        const authInfo = await ask(() =>
-          verifyBearerToken(c.req.header('authorization'), {
+        let authInfo: AuthInfo;
+        let newUserEmail: string | undefined;
+        try {
+          authInfo = await verifyBearerToken(c.req.header('authorization'), {
             verifier: bearer,
             expectedResource: new URL(resource),
             resourceMetadataUrl,
-          }),
-        );
-        if (authInfo instanceof Response) {
-          return authInfo;
-        }
-        const userId = userIdOf(authInfo);
-        if (!(await getUser(db, userId))) {
-          const email = await ask(() => bearer.email(userId));
-          if (email instanceof Response) {
-            return email;
+          });
+          if (!(await getUser(db, userIdOf(authInfo)))) {
+            newUserEmail = await bearer.email(userIdOf(authInfo));
           }
-          await ensureUser(db, { id: userId, email });
+        } catch (error) {
+          if (error instanceof AuthUnavailableError) {
+            logger.warn({ err: safeError(error.cause) }, 'identity provider unavailable');
+            return c.json({ error: 'auth_unavailable' }, 503);
+          }
+          if (error instanceof OAuthError) {
+            return bearerAuthChallengeResponse(error, { resourceMetadataUrl });
+          }
+          throw error;
+        }
+        if (newUserEmail !== undefined) {
+          await ensureUser(db, { id: userIdOf(authInfo), email: newUserEmail });
         }
         return handler.fetch(c.req.raw, { authInfo });
       })
   );
 }
+
+export const mcpResource = (publicBaseUrl: string) => `${publicBaseUrl}/mcp`;
