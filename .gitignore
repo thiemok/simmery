@@ -32,3 +32,4 @@ vitest.config.*.timestamp*
 vite.config.*.timestamp*
 out-tsc
 test-output
+test-results

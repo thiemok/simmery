@@ -1,0 +1,154 @@
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: flex;
+  gap: var(--s-3);
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.filters > .field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  font-weight: 600;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+}
+
+.list {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.itemLink {
+  flex: 1;
+  display: grid;
+  min-height: var(--tap);
+  color: var(--c-ink);
+  text-decoration: none;
+}
+
+.itemLink b {
+  font-size: 16px;
+}
+
+.section {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.ingredients li {
+  display: flex;
+  gap: var(--s-3);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.ingredients .amount {
+  min-width: 6rem;
+}
+
+.steps {
+  list-style: decimal;
+  padding-left: 1.4em;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.form {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.grid2 {
+  display: grid;
+  gap: var(--s-3);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stepRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s-2);
+  align-items: start;
+}
+
+.stepRow textarea {
+  min-height: 72px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.saved {
+  color: var(--c-checked);
+  font-weight: 700;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.table th {
+  font-family: var(--f-mono);
+  font-weight: 400;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-ink-soft);
+}
+
+.num {
+  text-align: right !important;
+  font-family: var(--f-mono);
+}
+
+.short {
+  max-width: 110px;
+}
+
+.tagInput {
+  max-width: 240px;
+}
+
+.bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--c-accent);
+  min-width: 2px;
+}

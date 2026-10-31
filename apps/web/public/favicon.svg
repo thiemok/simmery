@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD98A" />
+      <stop offset="0.52" stop-color="#FFB585" />
+      <stop offset="1" stop-color="#EFA48E" />
+    </linearGradient>
+    <mask id="stripes">
+      <rect width="32" height="32" fill="#fff" />
+      <rect y="15" width="32" height="1.4" fill="#000" />
+      <rect y="18.6" width="32" height="1.4" fill="#000" />
+      <rect y="21.8" width="32" height="1.6" fill="#000" />
+    </mask>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#FFF7EF" />
+  <path d="M5 25a11 11 0 0 1 22 0z" fill="url(#sun)" mask="url(#stripes)" />
+  <rect x="3" y="25" width="26" height="1.6" fill="#262848" />
+</svg>

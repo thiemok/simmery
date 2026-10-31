@@ -1,0 +1,37 @@
+/* Dawn Outrun tokens (visual-identity R4, R6), from the :root block of docs/design/dawn-outrun.html. */
+:root {
+  --c-ground: #fff7ef;
+  --c-surface: #ffffff;
+  --c-ink: #262848;
+  --c-ink-soft: #585c7e;
+  --c-line: #e9e2dc;
+  --c-accent: #3d4fa8;
+  --c-accent-ink: #ffffff;
+  --c-sun-1: #ffd98a;
+  --c-sun-2: #ffb585;
+  --c-sun-3: #efa48e;
+  --c-sky: #ffe6d3;
+  --c-haze: #dde6f3;
+  --c-lavender: #ece3f1;
+  --c-checked: #0b7a78;
+  --c-checked-bg: #ddf4f1;
+  --c-offline: #8a4b00;
+  --c-offline-bg: #ffe7b8;
+  --c-danger: #a3323a;
+  --g-sunrise: linear-gradient(180deg, var(--c-sun-1) 0%, var(--c-sun-2) 52%, var(--c-sun-3) 100%);
+  --g-sky: linear-gradient(180deg, var(--c-haze) 0%, var(--c-lavender) 55%, var(--c-sky) 100%);
+  --f-display: 'Oxanium', 'Eurostile', 'Arial', sans-serif;
+  --f-body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+  --f-mono: 'Share Tech Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-pill: 999px;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --tap: 44px;
+}

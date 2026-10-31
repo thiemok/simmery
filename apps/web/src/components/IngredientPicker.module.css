@@ -1,0 +1,40 @@
+.picker {
+  position: relative;
+}
+
+.list {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  box-shadow: 0 6px 18px rgba(38, 40, 72, 0.12);
+}
+
+.option {
+  display: flex;
+  gap: var(--s-1);
+  align-items: baseline;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.option[aria-selected='true'] {
+  background: var(--c-ground);
+}
+
+.unit {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.create {
+  color: var(--c-accent);
+  font-weight: 700;
+}

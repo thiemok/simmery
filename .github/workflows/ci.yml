@@ -51,3 +51,11 @@ jobs:
 
       - name: Lint, typecheck, test, build affected
         run: pnpm nx affected -t lint typecheck test build
+
+      # The browser download only happens when a project with E2E tests is affected.
+      - name: End-to-end tests affected
+        run: |
+          if [ -n "$(pnpm nx show projects --affected --withTarget=e2e)" ]; then
+            pnpm --filter @simmery/web exec playwright install --with-deps chromium
+            pnpm nx affected -t e2e
+          fi

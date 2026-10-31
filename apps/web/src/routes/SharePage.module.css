@@ -1,0 +1,28 @@
+.shell {
+  min-height: 100dvh;
+}
+
+.bar {
+  display: flex;
+  padding: var(--s-2) var(--s-4);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-line);
+}
+
+.brand {
+  text-decoration: none;
+}
+
+.shell main {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.row {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.source {
+  font-weight: 600;
+}
